@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Notas</string>
+    <string name="search">Buscar</string>
+    <string name="new_note_task">Nueva nota/tarea</string>
+    <string name="title">Título</string>
+    <string name="description">Descripción</string>
+    <string name="is_task">Es tarea</string>
+    <string name="completed">Completada</string>
+    <string name="priority">Prioridad</string>
+    <string name="low">Baja</string>
+    <string name="medium">Media</string>
+    <string name="high">Alta</string>
+    <string name="set_due_date">Establecer fecha de vencimiento</string>
+    <string name="save">Guardar</string>
+    <string name="cancel">Cancelar</string>
+</resources>
