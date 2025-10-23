@@ -11,6 +11,11 @@
     <string name="medium">Medium</string>
     <string name="high">High</string>
     <string name="set_due_date">Set due date</string>
+    <string name="set_date">Set Date</string>
+    <string name="set_time">Set Time</string>
+    <string name="due_date">Due: %1$s</string>
+    <string name="add_attachment">Add Attachment</string>
+    <string name="remove_attachment">Remove attachment</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
 </resources>

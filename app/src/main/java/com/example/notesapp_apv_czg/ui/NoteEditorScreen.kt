@@ -1,12 +1,24 @@
 package com.example.notesapp_apv_czg.ui
 
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -14,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -30,8 +43,24 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
     var isCompleted by remember { mutableStateOf(note?.isCompleted ?: false) }
     var priority by remember { mutableIntStateOf(note?.priority ?: 0) }
     var dueDateMillis by remember { mutableStateOf(note?.dueDateMillis) }
+    var attachmentUris by remember { mutableStateOf(note?.attachmentUris ?: emptyList()) }
 
     val context = LocalContext.current
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flag)
+                attachmentUris = attachmentUris + uri.toString()
+            } catch (e: SecurityException) {
+                // Handle error if permission cannot be taken
+                e.printStackTrace()
+            }
+        }
+    }
 
     val toSave = {
         onSave(
@@ -42,7 +71,8 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                 isTask = isTask,
                 isCompleted = isCompleted,
                 priority = priority,
-                dueDateMillis = dueDateMillis
+                dueDateMillis = dueDateMillis,
+                attachmentUris = attachmentUris
             )
         )
     }
@@ -50,9 +80,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val breakpoint = 600.dp
         if (maxWidth > breakpoint) {
-            Row(modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -70,7 +98,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.width(IntrinsicSize.Min)) {
+                Column(modifier = Modifier.width(IntrinsicSize.Min).verticalScroll(rememberScrollState())) {
                     TaskSpecifics(
                         isTask = isTask,
                         onIsTaskChange = { isTask = it },
@@ -81,9 +109,17 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                         dueDateMillis = dueDateMillis,
                         onDueDateChange = { dueDateMillis = it }
                     )
+                    Attachments(
+                        attachmentUris = attachmentUris,
+                        onRemoveUri = { uri -> attachmentUris = attachmentUris - uri }
+                    )
                     Spacer(modifier = Modifier.weight(1f))
-                    Attachments(note)
-                    EditorButtons(onSave = toSave, onCancel = onCancel, modifier = Modifier.fillMaxWidth())
+                    EditorButtons(
+                        onSave = toSave,
+                        onCancel = onCancel,
+                        onAddAttachment = { imagePickerLauncher.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         } else {
@@ -98,9 +134,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                     value = description,
                     onValueChange = { description = it },
                     label = { Text(stringResource(id = R.string.description)) },
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .fillMaxWidth()
+                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
                 )
                 TaskSpecifics(
                     isTask = isTask,
@@ -112,9 +146,17 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                     dueDateMillis = dueDateMillis,
                     onDueDateChange = { dueDateMillis = it }
                 )
-                Attachments(note)
+                Attachments(
+                    attachmentUris = attachmentUris,
+                    onRemoveUri = { uri -> attachmentUris = attachmentUris - uri }
+                )
                 Spacer(modifier = Modifier.weight(1f))
-                EditorButtons(onSave = toSave, onCancel = onCancel, modifier = Modifier.fillMaxWidth())
+                EditorButtons(
+                    onSave = toSave,
+                    onCancel = onCancel,
+                    onAddAttachment = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -129,7 +171,7 @@ private fun TaskSpecifics(
     priority: Int,
     onPriorityChange: (Int) -> Unit,
     dueDateMillis: Long?,
-    onDueDateChange: (Long) -> Unit
+    onDueDateChange: (Long?) -> Unit
 ) {
     val context = LocalContext.current
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
@@ -156,53 +198,105 @@ private fun TaskSpecifics(
                 }
             }
 
-            Button(onClick = {
-                val calendar = Calendar.getInstance()
-                dueDateMillis?.let { calendar.timeInMillis = it }
-                TimePickerDialog(
-                    context,
-                    { _, hourOfDay, minute ->
-                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-                        calendar.set(Calendar.MINUTE, minute)
-                        onDueDateChange(calendar.timeInMillis)
-                    },
-                    calendar.get(Calendar.HOUR_OF_DAY),
-                    calendar.get(Calendar.MINUTE),
-                    false
-                ).show()
-            }, modifier = Modifier.padding(top = 8.dp)) {
-                Text(text = dueDateMillis?.let { "Due: ${java.text.SimpleDateFormat.getDateTimeInstance().format(it)}" } ?: stringResource(id = R.string.set_due_date))
+            Row(modifier = Modifier.padding(top = 8.dp)) {
+                Button(onClick = {
+                    val calendar = Calendar.getInstance()
+                    dueDateMillis?.let { calendar.timeInMillis = it }
+                    DatePickerDialog(
+                        context,
+                        { _, year, month, dayOfMonth ->
+                            val newCal = Calendar.getInstance().apply {
+                                timeInMillis = dueDateMillis ?: System.currentTimeMillis()
+                                set(year, month, dayOfMonth)
+                            }
+                            onDueDateChange(newCal.timeInMillis)
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                }) {
+                    Text(stringResource(R.string.set_date))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = {
+                    val calendar = Calendar.getInstance()
+                    dueDateMillis?.let { calendar.timeInMillis = it }
+                    TimePickerDialog(
+                        context,
+                        { _, hourOfDay, minute ->
+                            val newCal = Calendar.getInstance().apply {
+                                timeInMillis = dueDateMillis ?: System.currentTimeMillis()
+                                set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                set(Calendar.MINUTE, minute)
+                            }
+                            onDueDateChange(newCal.timeInMillis)
+                        },
+                        calendar.get(Calendar.HOUR_OF_DAY),
+                        calendar.get(Calendar.MINUTE),
+                        false
+                    ).show()
+                }) {
+                    Text(stringResource(R.string.set_time))
+                }
+            }
+            if (dueDateMillis != null) {
+                Text(text = stringResource(R.string.due_date, java.text.SimpleDateFormat.getDateTimeInstance().format(dueDateMillis)))
             }
         }
     }
 }
 
 @Composable
-private fun Attachments(note: Note?) {
-    // Attachments preview row
-    Row(modifier = Modifier.padding(top = 8.dp)) {
-        val attachments = note?.attachmentUris ?: emptyList()
-        for (uri in attachments) {
-            Image(
-                painter = rememberAsyncImagePainter(model = uri),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(64.dp)
-                    .padding(end = 8.dp)
-            )
+private fun Attachments(attachmentUris: List<String>, onRemoveUri: (String) -> Unit) {
+    Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+        attachmentUris.forEach { uriString ->
+            Box(modifier = Modifier.padding(end = 8.dp)) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = Uri.parse(uriString)),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp)
+                )
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.remove_attachment),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .clickable { onRemoveUri(uriString) }
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .padding(4.dp),
+                    tint = Color.White
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun EditorButtons(onSave: () -> Unit, onCancel: () -> Unit, modifier: Modifier = Modifier) {
+private fun EditorButtons(
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    onAddAttachment: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(modifier = modifier) {
-        // TODO: Hook up actual attachment picker via ActivityResultLauncher
-        Button(onClick = onSave, modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)) { Text(stringResource(id = R.string.save)) }
-        Button(onClick = onCancel, modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)) { Text(stringResource(id = R.string.cancel)) }
+        Button(
+            onClick = onAddAttachment,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+        ) {
+            Text(stringResource(id = R.string.add_attachment))
+        }
+        Button(
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        ) {
+            Text(stringResource(id = R.string.save))
+        }
+        Button(
+            onClick = onCancel,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        ) {
+            Text(stringResource(id = R.string.cancel))
+        }
     }
 }
