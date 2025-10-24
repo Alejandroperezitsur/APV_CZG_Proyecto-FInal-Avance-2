@@ -15,7 +15,12 @@
     <string name="set_time">Set Time</string>
     <string name="due_date">Due: %1$s</string>
     <string name="add_attachment">Add Attachment</string>
+    <string name="add_audio">Add Audio</string>
     <string name="remove_attachment">Remove attachment</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
+    <string name="channel_name">Task Reminders</string>
+    <string name="channel_description">Notifications for task reminders</string>
+    <string name="task_reminder">Task Reminder</string>
+    <string name="task_due_notification">A task is due.</string>
 </resources>
