@@ -14,30 +14,33 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Audiotrack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import coil.compose.rememberAsyncImagePainter
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
+import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: () -> Unit = {}) {
     var title by remember { mutableStateOf(note?.title ?: "") }
@@ -79,195 +82,240 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
         )
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val breakpoint = 600.dp
-        val isWideScreen = maxWidth > breakpoint
-
-        val editorContent = @Composable { modifier: Modifier ->
-            Column(
-                modifier = modifier
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(id = R.string.title)) }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text(stringResource(id = R.string.description)) },
-                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth().defaultMinSize(minHeight = if(isWideScreen) 200.dp else 120.dp)
-                )
-                if (!isWideScreen) {
-                    TaskSpecificsAndAttachments(
-                        isTask, { isTask = it }, isCompleted, { isCompleted = it }, priority, { priority = it },
-                        dueDateMillis, { dueDateMillis = it }, attachmentUris, { attachmentUris = it }, mediaPickerLauncher
-                    )
+    Scaffold(
+        topBar = {
+            TopAppBar(title = {}, navigationIcon = {
+                IconButton(onClick = onCancel) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cancel))
                 }
-                if(!isWideScreen) Spacer(modifier = Modifier.weight(1f))
-                EditorButtons(
-                    onSave = toSave,
-                    onCancel = onCancel,
-                    showAddButtons = !isWideScreen,
-                    onAddImage = { mediaPickerLauncher.launch("image/*") },
-                    onAddAudio = { mediaPickerLauncher.launch("audio/*") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            })
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = toSave) {
+                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save))
             }
         }
-
-        if (isWideScreen) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                editorContent(Modifier.weight(1f))
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.width(IntrinsicSize.Min).padding(end = 16.dp, top = 16.dp).verticalScroll(rememberScrollState())) {
-                    TaskSpecificsAndAttachments(
-                        isTask, { isTask = it }, isCompleted, { isCompleted = it }, priority, { priority = it },
-                        dueDateMillis, { dueDateMillis = it }, attachmentUris, { attachmentUris = it }, mediaPickerLauncher
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    EditorButtons(
-                        onSave = toSave,
-                        onCancel = onCancel,
-                        showAddButtons = true,
-                        onAddImage = { mediaPickerLauncher.launch("image/*") },
-                        onAddAudio = { mediaPickerLauncher.launch("audio/*") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            NoteTypeSelection(isTask = isTask, onIsTaskChange = { isTask = it })
+            
+            EditorTextField(
+                value = title,
+                onValueChange = { title = it },
+                placeholder = stringResource(R.string.title),
+                textStyle = MaterialTheme.typography.headlineMedium
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            EditorTextField(
+                value = description,
+                onValueChange = { description = it },
+                placeholder = stringResource(R.string.description),
+                textStyle = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.fillMaxHeight()
+            )
+            
+            if(isTask) {
+                TaskOptions(
+                    isCompleted = isCompleted,
+                    onIsCompletedChange = { isCompleted = it },
+                    priority = priority,
+                    onPriorityChange = { priority = it },
+                    dueDateMillis = dueDateMillis,
+                    onDueDateChange = { dueDateMillis = it }
+                )
             }
-        } else {
-            editorContent(Modifier.fillMaxSize())
+
+            AttachmentsSection(
+                attachmentUris = attachmentUris,
+                onAddImage = { mediaPickerLauncher.launch("image/*") },
+                onAddAudio = { mediaPickerLauncher.launch("audio/*") },
+                onRemoveUri = { uri -> attachmentUris = attachmentUris - uri }
+            )
+            Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
         }
     }
 }
 
 @Composable
-private fun TaskSpecificsAndAttachments(
-    isTask: Boolean, onIsTaskChange: (Boolean) -> Unit,
+private fun EditorTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, textStyle: TextStyle, modifier: Modifier = Modifier) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onBackground),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        modifier = modifier.fillMaxWidth(),
+        decorationBox = { innerTextField ->
+            Box {
+                if (value.isEmpty()) {
+                    Text(text = placeholder, style = textStyle, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                }
+                innerTextField()
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NoteTypeSelection(isTask: Boolean, onIsTaskChange: (Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = !isTask,
+            onClick = { onIsTaskChange(false) },
+            label = { Text(stringResource(R.string.note)) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        )
+        FilterChip(
+            selected = isTask,
+            onClick = { onIsTaskChange(true) },
+            label = { Text(stringResource(R.string.task)) },
+            leadingIcon = { Icon(Icons.Default.Task, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        )
+    }
+}
+
+@Composable
+private fun TaskOptions(
     isCompleted: Boolean, onIsCompletedChange: (Boolean) -> Unit,
     priority: Int, onPriorityChange: (Int) -> Unit,
-    dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit,
-    attachmentUris: List<String>, onAttachmentUrisChange: (List<String>) -> Unit,
-    mediaPickerLauncher: androidx.activity.result.ActivityResultLauncher<String>
+    dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit
 ) {
-    TaskSpecifics(isTask, onIsTaskChange, isCompleted, onIsCompletedChange, priority, onPriorityChange, dueDateMillis, onDueDateChange)
-    Attachments(attachmentUris, onRemoveUri = { uri -> onAttachmentUrisChange(attachmentUris - uri) })
+    Column(modifier = Modifier.padding(vertical = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onIsCompletedChange(!isCompleted) }) {
+            Checkbox(checked = isCompleted, onCheckedChange = { onIsCompletedChange(it) })
+            Text(stringResource(R.string.completed))
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(stringResource(R.string.priority), style = MaterialTheme.typography.titleMedium)
+        PriorityChips(selectedPriority = priority, onPriorityChange = onPriorityChange)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(stringResource(R.string.due_date_time), style = MaterialTheme.typography.titleMedium)
+        DueDateSelector(dueDateMillis = dueDateMillis, onDueDateChange = onDueDateChange)
+    }
 }
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TaskSpecifics(
-    isTask: Boolean, onIsTaskChange: (Boolean) -> Unit, isCompleted: Boolean, onIsCompletedChange: (Boolean) -> Unit,
-    priority: Int, onPriorityChange: (Int) -> Unit, dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit
-) {
-    val context = LocalContext.current
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-        Checkbox(checked = isTask, onCheckedChange = onIsTaskChange)
-        Text(stringResource(id = R.string.is_task))
-    }
-    if (isTask) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = isCompleted, onCheckedChange = onIsCompletedChange)
-                Text(stringResource(id = R.string.completed))
+private fun PriorityChips(selectedPriority: Int, onPriorityChange: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        val priorities = listOf(stringResource(R.string.low), stringResource(R.string.medium), stringResource(R.string.high))
+        priorities.forEachIndexed { index, priority ->
+            val colors = when(index) {
+                0 -> FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF4CAF50).copy(alpha = 0.3f))
+                1 -> FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFFFF9800).copy(alpha = 0.3f))
+                else -> FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFFF44336).copy(alpha = 0.3f))
             }
-            Text(stringResource(id = R.string.priority), modifier = Modifier.padding(top = 8.dp))
-            Row {
-                (0..2).forEach { priorityValue ->
-                    RadioButton(selected = priority == priorityValue, onClick = { onPriorityChange(priorityValue) })
-                    Text(text = when (priorityValue) {
-                        0 -> stringResource(id = R.string.low)
-                        1 -> stringResource(id = R.string.medium)
-                        else -> stringResource(id = R.string.high)
-                    })
+            FilterChip(
+                selected = selectedPriority == index,
+                onClick = { onPriorityChange(index) },
+                label = { Text(priority) },
+                colors = colors
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DueDateSelector(dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit) {
+    val context = LocalContext.current
+    val formattedDate = remember(dueDateMillis) {
+        dueDateMillis?.let { SimpleDateFormat.getDateTimeInstance().format(Date(it)) }
+    }
+
+    AssistChip(
+        modifier = Modifier.padding(top = 8.dp),
+        onClick = { 
+            showDatePicker(context, dueDateMillis) { newDate ->
+                showTimePicker(context, newDate, onDueDateChange)
+            }
+        },
+        label = { Text(formattedDate ?: stringResource(R.string.set_due_date)) },
+        leadingIcon = { Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        trailingIcon = if (dueDateMillis != null) {
+            { 
+                IconButton(onClick = { onDueDateChange(null) }) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remove_attachment), modifier = Modifier.size(18.dp))
                 }
             }
-            Row(modifier = Modifier.padding(top = 8.dp)) {
-                Button(onClick = { showDatePicker(context, dueDateMillis, onDueDateChange) }) { Text(stringResource(R.string.set_date)) }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { showTimePicker(context, dueDateMillis, onDueDateChange) }) { Text(stringResource(R.string.set_time)) }
-            }
-            if (dueDateMillis != null) {
-                Text(text = stringResource(R.string.due_date, java.text.SimpleDateFormat.getDateTimeInstance().format(dueDateMillis)))
-            }
+        } else { null }
+    )
+}
+
+private fun showDatePicker(context: Context, initialMillis: Long?, onDateSet: (Long) -> Unit) {
+    val calendar = Calendar.getInstance().apply { initialMillis?.let { timeInMillis = it } }
+    DatePickerDialog(context, { _, year, month, dayOfMonth ->
+        val newCal = Calendar.getInstance().apply {
+            timeInMillis = initialMillis ?: System.currentTimeMillis()
+            set(year, month, dayOfMonth)
         }
-    }
+        onDateSet(newCal.timeInMillis)
+    }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
 }
 
-private fun showDatePicker(context: Context, dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit) {
-    val calendar = Calendar.getInstance()
-    dueDateMillis?.let { calendar.timeInMillis = it }
-    DatePickerDialog( context, { _, year, month, dayOfMonth ->
-            val newCal = Calendar.getInstance().apply {
-                timeInMillis = dueDateMillis ?: System.currentTimeMillis()
-                set(year, month, dayOfMonth)
-            }
-            onDueDateChange(newCal.timeInMillis)
-        },
-        calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)
-    ).show()
-}
-
-private fun showTimePicker(context: Context, dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit) {
-    val calendar = Calendar.getInstance()
-    dueDateMillis?.let { calendar.timeInMillis = it }
-    TimePickerDialog( context, { _, hourOfDay, minute ->
-            val newCal = Calendar.getInstance().apply {
-                timeInMillis = dueDateMillis ?: System.currentTimeMillis()
-                set(Calendar.HOUR_OF_DAY, hourOfDay)
-                set(Calendar.MINUTE, minute)
-            }
-            onDueDateChange(newCal.timeInMillis)
-        },
-        calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false
-    ).show()
+private fun showTimePicker(context: Context, initialMillis: Long, onTimeSet: (Long?) -> Unit) {
+    val calendar = Calendar.getInstance().apply { timeInMillis = initialMillis }
+    TimePickerDialog(context, { _, hourOfDay, minute ->
+        val newCal = Calendar.getInstance().apply {
+            timeInMillis = initialMillis
+            set(Calendar.HOUR_OF_DAY, hourOfDay)
+            set(Calendar.MINUTE, minute)
+        }
+        onTimeSet(newCal.timeInMillis)
+    }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
 }
 
 @Composable
-private fun Attachments(attachmentUris: List<String>, onRemoveUri: (String) -> Unit) {
-    val context = LocalContext.current
-    Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
-        attachmentUris.forEach { uriString ->
-            val isAudio = context.contentResolver.getType(Uri.parse(uriString))?.startsWith("audio/") == true
-            Box(modifier = Modifier.padding(end = 8.dp)) {
-                if (isAudio) {
-                    Box(modifier = Modifier.size(80.dp).background(Color.LightGray), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Audiotrack, contentDescription = "Audio file", modifier = Modifier.size(40.dp))
-                    }
-                } else {
-                    Image(
-                        painter = rememberAsyncImagePainter(model = Uri.parse(uriString)),
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp)
-                    )
+private fun AttachmentsSection(attachmentUris: List<String>, onAddImage: () -> Unit, onAddAudio: () -> Unit, onRemoveUri: (String) -> Unit) {
+    Column(modifier = Modifier.padding(vertical = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.attachments), style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.width(16.dp))
+            IconButton(onClick = onAddImage) { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.add_image)) }
+            IconButton(onClick = onAddAudio) { Icon(Icons.Default.Audiotrack, contentDescription = stringResource(R.string.add_audio)) }
+        }
+        if (attachmentUris.isNotEmpty()) {
+            Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+                attachmentUris.forEach { uriString ->
+                    AttachmentItem(uriString = uriString, onRemoveUri = onRemoveUri)
                 }
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.remove_attachment),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .clickable { onRemoveUri(uriString) }
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        .padding(4.dp),
-                    tint = Color.White
-                )
             }
         }
     }
 }
 
 @Composable
-private fun EditorButtons(
-    onSave: () -> Unit, onCancel: () -> Unit, showAddButtons: Boolean,
-    onAddImage: () -> Unit, onAddAudio: () -> Unit, modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        if (showAddButtons) {
-            Row(Modifier.fillMaxWidth()) {
-                Button(onClick = onAddImage, modifier = Modifier.weight(1f).padding(end = 4.dp)) { Text(stringResource(id = R.string.add_attachment)) }
-                Button(onClick = onAddAudio, modifier = Modifier.weight(1f).padding(start = 4.dp)) { Text(stringResource(id = R.string.add_audio)) }
+private fun AttachmentItem(uriString: String, onRemoveUri: (String) -> Unit) {
+    val context = LocalContext.current
+    val isAudio = remember(uriString) { context.contentResolver.getType(uriString.toUri())?.startsWith("audio/") == true }
+
+    Box(modifier = Modifier.padding(end = 8.dp)) {
+        if (isAudio) {
+            Box(modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Audiotrack, contentDescription = "Audio file", modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        } else {
+            Image(
+                painter = rememberAsyncImagePainter(model = uriString.toUri()),
+                contentDescription = null,
+                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))
+            )
         }
-        Button(onClick = onSave, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(id = R.string.save)) }
-        Button(onClick = onCancel, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(id = R.string.cancel)) }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 8.dp, y = (-8).dp)
+                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                .clip(CircleShape)
+                .clickable { onRemoveUri(uriString) }
+        ) {
+            Icon(Icons.Default.Cancel, contentDescription = stringResource(R.string.remove_attachment), modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+        }
     }
 }

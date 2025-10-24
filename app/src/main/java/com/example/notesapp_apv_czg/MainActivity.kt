@@ -66,7 +66,10 @@ class MainActivity : ComponentActivity() {
                                 notes = vm.notes.collectAsState().value,
                                 onAdd = { nav.navigate("edit") },
                                 onOpen = { id -> nav.navigate("edit/$id") },
-                                onSearch = { q -> vm.search(q) }
+                                onDelete = {
+                                    vm.delete(it)
+                                    cancelNotification(it)
+                                }
                             )
                         }
                         composable("edit") {
@@ -149,6 +152,20 @@ class MainActivity : ComponentActivity() {
                     // Handle case where permission is denied
                 }
             }
+        } ?: run {
+            // If due date is null, cancel any existing alarm for this note
+            cancelNotification(note)
+        }
+    }
+
+    private fun cancelNotification(note: Note) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, NotificationReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, note.id.toInt(), intent, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            alarmManager.cancel(pendingIntent)
         }
     }
 }

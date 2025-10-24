@@ -1,46 +1,251 @@
 package com.example.notesapp_apv_czg.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
+import java.text.SimpleDateFormat
+import java.util.Date
+
+enum class NoteFilter { ALL, NOTES, TASKS }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NoteListScreen(
+    notes: List<Note>,
+    onAdd: () -> Unit = {},
+    onOpen: (Long) -> Unit = {},
+    onDelete: (Note) -> Unit = {}
+) {
+    var query by remember { mutableStateOf("") }
+    var isSearchActive by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf(NoteFilter.ALL) }
+    var noteToDelete by remember { mutableStateOf<Note?>(null) }
+
+    val filteredNotes = remember(notes, filter, query) {
+        // The rest of the filtering logic remains the same
+        val notesAfterFilter = when (filter) {
+            NoteFilter.NOTES -> notes.filter { !it.isTask }
+            NoteFilter.TASKS -> notes.filter { it.isTask }
+            NoteFilter.ALL -> notes
+        }
+        if (query.isBlank()) {
+            notesAfterFilter
+        } else {
+            notesAfterFilter.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                (it.description?.contains(query, ignoreCase = true) ?: false)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            HomeAppBar(
+                isSearchActive = isSearchActive,
+                query = query,
+                onQueryChange = { query = it },
+                onToggleSearch = {
+                    isSearchActive = !isSearchActive
+                    if (!isSearchActive) query = "" 
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onAdd) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_note_task))
+            }
+        }
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            FilterChips(selectedFilter = filter, onFilterChange = { filter = it })
+            if (filteredNotes.isEmpty()) {
+                EmptyListView()
+            } else {
+                NotesGrid(notes = filteredNotes, onOpen = onOpen, onLongPress = { noteToDelete = it })
+            }
+
+            if (noteToDelete != null) {
+                DeleteConfirmationDialog(
+                    onConfirm = { 
+                        onDelete(noteToDelete!!)
+                        noteToDelete = null
+                    },
+                    onDismiss = { noteToDelete = null }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeAppBar(isSearchActive: Boolean, query: String, onQueryChange: (String) -> Unit, onToggleSearch: () -> Unit) {
+    TopAppBar(
+        title = { 
+            if(!isSearchActive) {
+                Text(stringResource(R.string.app_name))
+            }
+        },
+        actions = {
+            if (isSearchActive) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    label = { Text(stringResource(R.string.search_notes)) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    trailingIcon = { IconButton(onClick = onToggleSearch) { Icon(Icons.Default.Close, contentDescription = null) } }
+                )
+            } else {
+                IconButton(onClick = onToggleSearch) {
+                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                }
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterChips(selectedFilter: NoteFilter, onFilterChange: (NoteFilter) -> Unit) {
+    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = selectedFilter == NoteFilter.ALL,
+            onClick = { onFilterChange(NoteFilter.ALL) },
+            label = { Text(stringResource(R.string.all)) }
+        )
+        FilterChip(
+            selected = selectedFilter == NoteFilter.NOTES,
+            onClick = { onFilterChange(NoteFilter.NOTES) },
+            label = { Text(stringResource(R.string.notes)) }
+        )
+        FilterChip(
+            selected = selectedFilter == NoteFilter.TASKS,
+            onClick = { onFilterChange(NoteFilter.TASKS) },
+            label = { Text(stringResource(R.string.tasks)) }
+        )
+    }
+}
 
 @Composable
-fun NoteListScreen(notes: List<Note>, onAdd: () -> Unit = {}, onOpen: (Long) -> Unit = {}, onSearch: (String) -> Unit = {}) {
-    var query by remember { mutableStateOf("") }
+private fun NotesGrid(notes: List<Note>, onOpen: (Long) -> Unit, onLongPress: (Note) -> Unit) {
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Adaptive(150.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalItemSpacing = 16.dp
+    ) {
+        items(notes, key = { it.id }) { note ->
+            NoteCard(note = note, onClick = { onOpen(note.id) }, onLongClick = { onLongPress(note) })
+        }
+    }
+}
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val maxW = maxWidth
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            OutlinedTextField(value = query, onValueChange = { query = it; onSearch(it) }, label = { Text(stringResource(id = R.string.search)) })
-            Button(onClick = onAdd, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(id = R.string.new_note_task)) }
-            LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
-                items(notes) { note ->
-                    NoteRow(note = note, onClick = { onOpen(note.id) })
-                }
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun NoteCard(note: Note, onClick: () -> Unit, onLongClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if(note.title.isNotBlank()) {
+                Text(text = note.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (note.description?.isNotBlank() == true) Spacer(modifier = Modifier.height(8.dp))
+            }
+            if (note.description?.isNotBlank() == true) {
+                Text(text = note.description, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
+            }
+
+            if(note.isTask && note.dueDateMillis != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                DueDateIndicator(dueDateMillis = note.dueDateMillis, priority = note.priority)
+            }
+            
+            if(note.attachmentUris.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                AttachmentIcons(uris = note.attachmentUris)
             }
         }
     }
 }
 
 @Composable
-fun NoteRow(note: Note, onClick: () -> Unit) {
-    Column(modifier = Modifier
-        .clickable { onClick() }
-        .padding(8.dp)) {
-        Text(text = note.title)
-        note.description?.let { Text(text = it) }
+private fun DueDateIndicator(dueDateMillis: Long, priority: Int) {
+    val formattedDate = remember { SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT).format(Date(dueDateMillis)) }
+    val priorityColor = when (priority) {
+        0 -> Color(0xFF4CAF50) // Low
+        1 -> Color(0xFFFF9800) // Medium
+        else -> Color(0xFFF44336) // High
     }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(8.dp).background(priorityColor, CircleShape))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = formattedDate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun AttachmentIcons(uris: List<String>) {
+    val context = LocalContext.current
+    val hasImage = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("image/") == true } }
+    val hasAudio = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("audio/") == true } }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (hasImage) {
+            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (hasAudio) {
+            Icon(Icons.Default.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun EmptyListView() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(stringResource(R.string.empty_list_message), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+    }
+}
+
+@Composable
+fun DeleteConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.delete_note_title)) },
+        text = { Text(stringResource(R.string.delete_note_confirmation)) },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text(stringResource(R.string.delete))
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
 }
