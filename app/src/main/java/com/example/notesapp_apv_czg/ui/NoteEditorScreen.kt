@@ -23,7 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,13 +45,15 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: () -> Unit = {}) {
-    var title by remember { mutableStateOf(note?.title ?: "") }
-    var description by remember { mutableStateOf(note?.description ?: "") }
-    var isTask by remember { mutableStateOf(note?.isTask ?: false) }
-    var isCompleted by remember { mutableStateOf(note?.isCompleted ?: false) }
-    var priority by remember { mutableIntStateOf(note?.priority ?: 0) }
-    var dueDateMillis by remember { mutableStateOf(note?.dueDateMillis) }
-    var attachmentUris by remember { mutableStateOf(note?.attachmentUris ?: emptyList()) }
+    var title by rememberSaveable { mutableStateOf(note?.title ?: "") }
+    var description by rememberSaveable { mutableStateOf(note?.description ?: "") }
+    var isTask by rememberSaveable { mutableStateOf(note?.isTask ?: false) }
+    var isCompleted by rememberSaveable { mutableStateOf(note?.isCompleted ?: false) }
+    var priority by rememberSaveable { mutableIntStateOf(note?.priority ?: 0) }
+    var dueDateMillis by rememberSaveable { mutableStateOf(note?.dueDateMillis) }
+    val attachmentUris = rememberSaveable(saver = Saver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
+        (note?.attachmentUris ?: emptyList()).toMutableStateList()
+    }
 
     val context = LocalContext.current
 
@@ -60,7 +64,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
             try {
                 val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(uri, flag)
-                attachmentUris = attachmentUris + uri.toString()
+                attachmentUris.add(uri.toString())
             } catch (e: SecurityException) {
                 e.printStackTrace()
             }
@@ -77,7 +81,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                 isCompleted = isCompleted,
                 priority = priority,
                 dueDateMillis = dueDateMillis,
-                attachmentUris = attachmentUris
+                attachmentUris = attachmentUris.toList()
             )
         )
     }
@@ -135,7 +139,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                 attachmentUris = attachmentUris,
                 onAddImage = { mediaPickerLauncher.launch("image/*") },
                 onAddAudio = { mediaPickerLauncher.launch("audio/*") },
-                onRemoveUri = { uri -> attachmentUris = attachmentUris - uri }
+                onRemoveUri = { uri -> attachmentUris.remove(uri) }
             )
             Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
         }
@@ -272,7 +276,7 @@ private fun showTimePicker(context: Context, initialMillis: Long, onTimeSet: (Lo
 }
 
 @Composable
-private fun AttachmentsSection(attachmentUris: List<String>, onAddImage: () -> Unit, onAddAudio: () -> Unit, onRemoveUri: (String) -> Unit) {
+private fun AttachmentsSection(attachmentUris: SnapshotStateList<String>, onAddImage: () -> Unit, onAddAudio: () -> Unit, onRemoveUri: (String) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.attachments), style = MaterialTheme.typography.titleMedium)
