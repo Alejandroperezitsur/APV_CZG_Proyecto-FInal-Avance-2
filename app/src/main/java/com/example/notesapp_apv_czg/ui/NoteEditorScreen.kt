@@ -11,7 +11,19 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,12 +32,29 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Notes
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Task
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,25 +69,17 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
 import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.collections.ArrayList
+import java.util.Calendar
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: () -> Unit = {}) {
-    var title by rememberSaveable { mutableStateOf(note?.title ?: "") }
-    var description by rememberSaveable { mutableStateOf(note?.description ?: "") }
-    var isTask by rememberSaveable { mutableStateOf(note?.isTask ?: false) }
-    var isCompleted by rememberSaveable { mutableStateOf(note?.isCompleted ?: false) }
-    var priority by rememberSaveable { mutableStateOf(note?.priority ?: 0) }
-    var dueDateMillis by rememberSaveable { mutableStateOf(note?.dueDateMillis) }
-    
-    val attachmentUris = rememberSaveable(saver = Saver(
-        save = { ArrayList(it) },
-        restore = { it.toMutableStateList() }
-    )) {
-        (note?.attachmentUris ?: emptyList()).toMutableStateList()
-    }
+fun NoteEditorScreen(
+    viewModel: NoteViewModel,
+    onSave: (Note) -> Unit = {},
+    onCancel: () -> Unit = {}
+) {
+    val editorState by viewModel.editorState.collectAsState()
 
     val context = LocalContext.current
 
@@ -69,7 +90,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
             try {
                 val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(uri, flag)
-                attachmentUris.add(uri.toString())
+                viewModel.onAttachmentAdded(uri.toString())
             } catch (e: SecurityException) {
                 e.printStackTrace()
             }
@@ -77,18 +98,7 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
     }
 
     val toSave = {
-        onSave(
-            Note(
-                id = note?.id ?: 0,
-                title = title,
-                description = description,
-                isTask = isTask,
-                isCompleted = isCompleted,
-                priority = priority,
-                dueDateMillis = dueDateMillis,
-                attachmentUris = attachmentUris.toList()
-            )
-        )
+        viewModel.saveNote(onSave)
     }
 
     Scaffold(
@@ -112,39 +122,39 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            NoteTypeSelection(isTask = isTask, onIsTaskChange = { isTask = it })
-            
+            NoteTypeSelection(isTask = editorState.isTask, onIsTaskChange = viewModel::onIsTaskChange)
+
             EditorTextField(
-                value = title,
-                onValueChange = { title = it },
+                value = editorState.title,
+                onValueChange = viewModel::onTitleChange,
                 placeholder = stringResource(R.string.title),
                 textStyle = MaterialTheme.typography.headlineMedium
             )
             Spacer(modifier = Modifier.height(16.dp))
             EditorTextField(
-                value = description,
-                onValueChange = { description = it },
+                value = editorState.description,
+                onValueChange = viewModel::onDescriptionChange,
                 placeholder = stringResource(R.string.description),
                 textStyle = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.fillMaxHeight()
             )
-            
-            if(isTask) {
+
+            if(editorState.isTask) {
                 TaskOptions(
-                    isCompleted = isCompleted,
-                    onIsCompletedChange = { isCompleted = it },
-                    priority = priority,
-                    onPriorityChange = { priority = it },
-                    dueDateMillis = dueDateMillis,
-                    onDueDateChange = { dueDateMillis = it }
+                    isCompleted = editorState.isCompleted,
+                    onIsCompletedChange = viewModel::onIsCompletedChange,
+                    priority = editorState.priority,
+                    onPriorityChange = viewModel::onPriorityChange,
+                    dueDateMillis = editorState.dueDateMillis,
+                    onDueDateChange = viewModel::onDueDateChange
                 )
             }
 
             AttachmentsSection(
-                attachmentUris = attachmentUris,
+                attachmentUris = editorState.attachmentUris,
                 onAddImage = { mediaPickerLauncher.launch("image/*") },
                 onAddAudio = { mediaPickerLauncher.launch("audio/*") },
-                onRemoveUri = { uri -> attachmentUris.remove(uri) }
+                onRemoveUri = viewModel::onAttachmentRemoved
             )
             Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
         }
@@ -281,7 +291,7 @@ private fun showTimePicker(context: Context, initialMillis: Long, onTimeSet: (Lo
 }
 
 @Composable
-private fun AttachmentsSection(attachmentUris: SnapshotStateList<String>, onAddImage: () -> Unit, onAddAudio: () -> Unit, onRemoveUri: (String) -> Unit) {
+private fun AttachmentsSection(attachmentUris: List<String>, onAddImage: () -> Unit, onAddAudio: () -> Unit, onRemoveUri: (String) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.attachments), style = MaterialTheme.typography.titleMedium)

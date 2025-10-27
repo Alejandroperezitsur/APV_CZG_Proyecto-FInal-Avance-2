@@ -2,6 +2,7 @@ package com.example.notesapp_apv_czg
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -18,10 +19,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
@@ -54,21 +53,18 @@ class MainActivity : ComponentActivity() {
         createNotificationChannel()
         requestNotificationPermission()
 
-        val db = AppDatabase.getInstance(applicationContext)
-        val repo = NoteRepository(db.noteDao())
-
         setContent {
             NotesAppAPVCZGTheme {
                 val nav = rememberNavController()
-                val vm: NoteViewModel = viewModel(factory = NoteViewModelFactory(repo))
+                val vm: NoteViewModel = viewModel(factory = NoteViewModelFactory(application))
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     NavHost(navController = nav, startDestination = "list", modifier = Modifier.padding(innerPadding)) {
                         composable("list") {
                             NoteListScreen(
                                 notes = vm.notes.collectAsState().value,
                                 onAdd = {
-                                    vm.clearCurrentNote()
-                                    nav.navigate("edit/0") // Navigate with a new note ID
+                                    vm.prepareNewNote()
+                                    nav.navigate("edit")
                                 },
                                 onOpen = { id -> nav.navigate("edit/$id") },
                                 onDelete = {
@@ -77,29 +73,25 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        composable("edit") {
+                            NoteEditorScreen(
+                                viewModel = vm,
+                                onSave = { note ->
+                                    scheduleNotification(note)
+                                    nav.popBackStack()
+                                },
+                                onCancel = { nav.popBackStack() }
+                            )
+                        }
                         composable("edit/{id}") { backStack ->
                             val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
-                            
-                            DisposableEffect(Unit) {
-                                if (id != 0L) {
-                                    vm.getNoteById(id)
-                                } else {
-                                    vm.clearCurrentNote()
-                                }
-                                onDispose { vm.clearCurrentNote() }
+                            LaunchedEffect(id) {
+                                vm.loadNote(id)
                             }
-
-                            val note by vm.currentNote.collectAsState()
-
                             NoteEditorScreen(
-                                note = if(id == 0L) null else note,
-                                onSave = { updatedNote ->
-                                    if (updatedNote.id == 0L) {
-                                        vm.insert(updatedNote) { newId -> scheduleNotification(updatedNote.copy(id = newId)) }
-                                    } else {
-                                        vm.update(updatedNote)
-                                        scheduleNotification(updatedNote)
-                                    }
+                                viewModel = vm,
+                                onSave = { note ->
+                                    scheduleNotification(note)
                                     nav.popBackStack()
                                 },
                                 onCancel = { nav.popBackStack() }
@@ -174,11 +166,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-class NoteViewModelFactory(private val repo: NoteRepository) : ViewModelProvider.Factory {
+class NoteViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(NoteViewModel::class.java)) {
+            val db = AppDatabase.getInstance(application)
+            val repository = NoteRepository(db.noteDao())
             @Suppress("UNCHECKED_CAST")
-            return NoteViewModel(repo) as T
+            return NoteViewModel(repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -188,6 +182,6 @@ class NoteViewModelFactory(private val repo: NoteRepository) : ViewModelProvider
 @Composable
 fun DefaultPreview() {
     NotesAppAPVCZGTheme {
-        NoteListScreen(notes = emptyList())
+        NoteListScreen(notes = emptyList(), onAdd = {}, onOpen = {}, onDelete = {})
     }
 }
