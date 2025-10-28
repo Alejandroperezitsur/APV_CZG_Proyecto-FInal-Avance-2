@@ -41,6 +41,7 @@ import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,9 +50,13 @@ fun NoteEditorScreen(note: Note? = null, onSave: (Note) -> Unit = {}, onCancel: 
     var description by rememberSaveable { mutableStateOf(note?.description ?: "") }
     var isTask by rememberSaveable { mutableStateOf(note?.isTask ?: false) }
     var isCompleted by rememberSaveable { mutableStateOf(note?.isCompleted ?: false) }
-    var priority by rememberSaveable { mutableIntStateOf(note?.priority ?: 0) }
+    var priority by rememberSaveable { mutableStateOf(note?.priority ?: 0) }
     var dueDateMillis by rememberSaveable { mutableStateOf(note?.dueDateMillis) }
-    val attachmentUris = rememberSaveable(saver = Saver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
+    
+    val attachmentUris = rememberSaveable(saver = Saver(
+        save = { ArrayList(it) },
+        restore = { it.toMutableStateList() }
+    )) {
         (note?.attachmentUris ?: emptyList()).toMutableStateList()
     }
 

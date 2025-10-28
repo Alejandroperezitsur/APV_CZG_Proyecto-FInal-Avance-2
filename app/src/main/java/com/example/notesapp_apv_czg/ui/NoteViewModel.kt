@@ -16,6 +16,9 @@ class NoteViewModel(private val repo: NoteRepository) : ViewModel() {
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     val notes: StateFlow<List<Note>> = _notes.asStateFlow()
 
+    private val _currentNote = MutableStateFlow<Note?>(null)
+    val currentNote: StateFlow<Note?> = _currentNote.asStateFlow()
+
     init {
         repo.getAllNotes()
             .onEach { _notes.value = it }
@@ -23,7 +26,18 @@ class NoteViewModel(private val repo: NoteRepository) : ViewModel() {
             .launchIn(viewModelScope)
     }
 
+    fun getNoteById(id: Long) {
+        viewModelScope.launch {
+            _currentNote.value = repo.getById(id)
+        }
+    }
+
+    fun clearCurrentNote() {
+        _currentNote.value = null
+    }
+
     fun search(q: String) {
+        // This is now handled locally in the UI, but the function can be kept for other purposes
         repo.search(q)
             .onEach { _notes.value = it }
             .catch { /* handle */ }

@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
@@ -64,7 +66,10 @@ class MainActivity : ComponentActivity() {
                         composable("list") {
                             NoteListScreen(
                                 notes = vm.notes.collectAsState().value,
-                                onAdd = { nav.navigate("edit") },
+                                onAdd = {
+                                    vm.clearCurrentNote()
+                                    nav.navigate("edit/0") // Navigate with a new note ID
+                                },
                                 onOpen = { id -> nav.navigate("edit/$id") },
                                 onDelete = {
                                     vm.delete(it)
@@ -72,34 +77,33 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        composable("edit") {
+                        composable("edit/{id}") { backStack ->
+                            val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                            
+                            DisposableEffect(Unit) {
+                                if (id != 0L) {
+                                    vm.getNoteById(id)
+                                } else {
+                                    vm.clearCurrentNote()
+                                }
+                                onDispose { vm.clearCurrentNote() }
+                            }
+
+                            val note by vm.currentNote.collectAsState()
+
                             NoteEditorScreen(
-                                onSave = { note ->
-                                    vm.insert(note) { id -> scheduleNotification(note.copy(id = id)) }
+                                note = if(id == 0L) null else note,
+                                onSave = { updatedNote ->
+                                    if (updatedNote.id == 0L) {
+                                        vm.insert(updatedNote) { newId -> scheduleNotification(updatedNote.copy(id = newId)) }
+                                    } else {
+                                        vm.update(updatedNote)
+                                        scheduleNotification(updatedNote)
+                                    }
                                     nav.popBackStack()
                                 },
                                 onCancel = { nav.popBackStack() }
                             )
-                        }
-                        composable("edit/{id}") { backStack ->
-                            val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
-                            val note = vm.notes.collectAsState().value.find { it.id == id }
-                            LaunchedEffect(note) {
-                                if (note == null && id != 0L) {
-                                    // Note might be loading, or invalid id.
-                                }
-                            }
-                            if (note != null) {
-                                NoteEditorScreen(
-                                    note = note,
-                                    onSave = { updatedNote ->
-                                        vm.update(updatedNote)
-                                        scheduleNotification(updatedNote)
-                                        nav.popBackStack()
-                                    },
-                                    onCancel = { nav.popBackStack() }
-                                )
-                            }
                         }
                     }
                 }
