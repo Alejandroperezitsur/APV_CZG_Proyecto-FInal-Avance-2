@@ -1,34 +1,77 @@
 package com.example.notesapp_apv_czg.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Task
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
+import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 enum class NoteFilter { ALL, NOTES, TASKS }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NoteListScreen(
     notes: List<Note>,
@@ -36,216 +79,530 @@ fun NoteListScreen(
     onOpen: (Long) -> Unit = {},
     onDelete: (Note) -> Unit = {}
 ) {
-    var query by remember { mutableStateOf("") }
-    var isSearchActive by remember { mutableStateOf(false) }
-    var filter by remember { mutableStateOf(NoteFilter.ALL) }
-    var noteToDelete by remember { mutableStateOf<Note?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var filterType by remember { mutableStateOf("all") } // "all", "notes", "tasks"
+    var showDeleteDialog by remember { mutableStateOf<Note?>(null) }
 
-    val filteredNotes = remember(notes, filter, query) {
-        // The rest of the filtering logic remains the same
-        val notesAfterFilter = when (filter) {
-            NoteFilter.NOTES -> notes.filter { !it.isTask }
-            NoteFilter.TASKS -> notes.filter { it.isTask }
-            NoteFilter.ALL -> notes
+    val filteredNotes = notes.filter { note ->
+        val matchesSearch = note.title.contains(searchQuery, ignoreCase = true) ||
+                note.description?.contains(searchQuery, ignoreCase = true) == true
+        val matchesFilter = when (filterType) {
+            "notes" -> !note.isTask
+            "tasks" -> note.isTask
+            else -> true
         }
-        if (query.isBlank()) {
-            notesAfterFilter
-        } else {
-            notesAfterFilter.filter {
-                it.title.contains(query, ignoreCase = true) ||
-                (it.description?.contains(query, ignoreCase = true) ?: false)
-            }
-        }
-    }
+        matchesSearch && matchesFilter
+    }.sortedWith(compareByDescending<Note> { it.isTask && !it.isCompleted }
+        .thenByDescending { it.priority }
+        .thenByDescending { it.dueDateMillis ?: 0 })
 
     Scaffold(
         topBar = {
-            HomeAppBar(
-                isSearchActive = isSearchActive,
-                query = query,
-                onQueryChange = { query = it },
-                onToggleSearch = {
-                    isSearchActive = !isSearchActive
-                    if (!isSearchActive) query = "" 
-                }
+            TopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF128C7E), // Dark Blue
+                    titleContentColor = Color.White
+                )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAdd) {
+            ExtendedFloatingActionButton(
+                onClick = onAdd,
+                containerColor = Color(0xFF128C7E), // Dark Blue
+                contentColor = Color.White
+            ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_note_task))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.new_note_task),
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
-            FilterChips(selectedFilter = filter, onFilterChange = { filter = it })
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Search bar
+            SearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Filter chips
+            FilterChips(
+                selectedFilter = filterType,
+                onFilterChange = { filterType = it }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Notes list
             if (filteredNotes.isEmpty()) {
-                EmptyListView()
+                EmptyState(hasSearch = searchQuery.isNotEmpty())
             } else {
-                NotesGrid(notes = filteredNotes, onOpen = onOpen, onLongPress = { noteToDelete = it })
-            }
-
-            if (noteToDelete != null) {
-                DeleteConfirmationDialog(
-                    onConfirm = { 
-                        onDelete(noteToDelete!!)
-                        noteToDelete = null
-                    },
-                    onDismiss = { noteToDelete = null }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HomeAppBar(isSearchActive: Boolean, query: String, onQueryChange: (String) -> Unit, onToggleSearch: () -> Unit) {
-    TopAppBar(
-        title = { 
-            if(!isSearchActive) {
-                Text(stringResource(R.string.app_name))
-            }
-        },
-        actions = {
-            if (isSearchActive) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    label = { Text(stringResource(R.string.search_notes)) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    trailingIcon = { IconButton(onClick = onToggleSearch) { Icon(Icons.Default.Close, contentDescription = null) } }
-                )
-            } else {
-                IconButton(onClick = onToggleSearch) {
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(
+                        items = filteredNotes,
+                        key = { it.id }
+                    ) { note ->
+                        NoteCard(
+                            note = note,
+                            onClick = { onOpen(it.id) },
+                            onDelete = { showDeleteDialog = note }
+                        )
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(80.dp)) // Space for FAB
+                    }
                 }
             }
         }
+    }
+
+    // Delete confirmation dialog
+    showDeleteDialog?.let { note ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text(stringResource(R.string.delete_note_title)) },
+            text = { Text(stringResource(R.string.delete_note_confirmation)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete(note)
+                        showDeleteDialog = null
+                    }
+                ) {
+                    Text(
+                        stringResource(R.string.delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(stringResource(R.string.search_notes)) },
+        leadingIcon = {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        singleLine = true
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FilterChips(selectedFilter: NoteFilter, onFilterChange: (NoteFilter) -> Unit) {
-    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(
-            selected = selectedFilter == NoteFilter.ALL,
-            onClick = { onFilterChange(NoteFilter.ALL) },
-            label = { Text(stringResource(R.string.all)) }
-        )
-        FilterChip(
-            selected = selectedFilter == NoteFilter.NOTES,
-            onClick = { onFilterChange(NoteFilter.NOTES) },
-            label = { Text(stringResource(R.string.notes)) }
-        )
-        FilterChip(
-            selected = selectedFilter == NoteFilter.TASKS,
-            onClick = { onFilterChange(NoteFilter.TASKS) },
-            label = { Text(stringResource(R.string.tasks)) }
-        )
-    }
-}
-
-@Composable
-private fun NotesGrid(notes: List<Note>, onOpen: (Long) -> Unit, onLongPress: (Note) -> Unit) {
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(150.dp),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalItemSpacing = 16.dp
+private fun FilterChips(
+    selectedFilter: String,
+    onFilterChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
     ) {
-        items(notes, key = { it.id }) { note ->
-            NoteCard(note = note, onClick = { onOpen(note.id) }, onLongClick = { onLongPress(note) })
+        item {
+            FilterChip(
+                selected = selectedFilter == "all",
+                onClick = { onFilterChange("all") },
+                label = {
+                    Text(
+                        stringResource(R.string.all),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            )
+        }
+        item {
+            FilterChip(
+                selected = selectedFilter == "notes",
+                onClick = { onFilterChange("notes") },
+                label = {
+                    Text(
+                        stringResource(R.string.notes),
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Notes,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+        }
+        item {
+            FilterChip(
+                selected = selectedFilter == "tasks",
+                onClick = { onFilterChange("tasks") },
+                label = {
+                    Text(
+                        stringResource(R.string.tasks),
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Task,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NoteCard(note: Note, onClick: () -> Unit, onLongClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            if(note.title.isNotBlank()) {
-                Text(text = note.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (note.description?.isNotBlank() == true) Spacer(modifier = Modifier.height(8.dp))
-            }
-            if (note.description?.isNotBlank() == true) {
-                Text(text = note.description, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
-            }
-
-            if(note.isTask && note.dueDateMillis != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                DueDateIndicator(dueDateMillis = note.dueDateMillis, priority = note.priority)
-            }
-            
-            if(note.attachmentUris.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                AttachmentIcons(uris = note.attachmentUris)
-            }
-        }
-    }
-}
-
-@Composable
-private fun DueDateIndicator(dueDateMillis: Long, priority: Int) {
-    val formattedDate = remember { SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT).format(Date(dueDateMillis)) }
-    val priorityColor = when (priority) {
-        0 -> Color(0xFF4CAF50) // Low
-        1 -> Color(0xFFFF9800) // Medium
-        else -> Color(0xFFF44336) // High
-    }
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(8.dp).background(priorityColor, CircleShape))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = formattedDate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun AttachmentIcons(uris: List<String>) {
-    val context = LocalContext.current
-    val hasImage = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("image/") == true } }
-    val hasAudio = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("audio/") == true } }
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (hasImage) {
-            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (hasAudio) {
-            Icon(Icons.Default.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun EmptyListView() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(stringResource(R.string.empty_list_message), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-    }
-}
-
-@Composable
-fun DeleteConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.delete_note_title)) },
-        text = { Text(stringResource(R.string.delete_note_confirmation)) },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text(stringResource(R.string.delete))
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
+private fun NoteCard(
+    note: Note,
+    onClick: (Note) -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else false
         }
     )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val color by animateColorAsState(
+                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else MaterialTheme.colorScheme.surface,
+                label = "background_color"
+            )
+            val scale by animateFloatAsState(
+                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1.3f else 0.8f,
+                label = "scale"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color, RoundedCornerShape(16.dp))
+                    .padding(16.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    modifier = Modifier.scale(scale),
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        },
+        modifier = modifier
+    ) {
+        NoteCardContent(
+            note = note,
+            onClick = onClick
+        )
+    }
+}
+
+@Composable
+private fun NoteCardContent(
+    note: Note,
+    onClick: (Note) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick(note) },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (note.isTask && note.isCompleted) {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Note type indicator and completion status
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (note.isTask) {
+                        Icon(
+                            imageVector = if (note.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (note.isCompleted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.task),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.note),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Priority stars
+                if (note.isTask && note.priority > 0) {
+                    Row {
+                        repeat(note.priority) {
+                            Icon(
+                                Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFD700),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Title
+            Text(
+                text = note.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    textDecoration = if (note.isTask && note.isCompleted) 
+                        androidx.compose.ui.text.style.TextDecoration.LineThrough 
+                    else null
+                ),
+                color = if (note.isTask && note.isCompleted) 
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                else MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Description preview
+            note.description?.takeIf { it.isNotEmpty() }?.let { description ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Attachments preview
+            if (note.attachmentUris.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                AttachmentPreview(attachmentUris = note.attachmentUris)
+            }
+
+            // Footer with date and due date
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                // Due date (for tasks)
+                note.dueDateMillis?.let { dueDate ->
+                    val isOverdue = dueDate < System.currentTimeMillis() && !note.isCompleted
+                    Text(
+                        text = "Due: ${SimpleDateFormat.getDateInstance().format(Date(dueDate))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        fontWeight = if (isOverdue) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Attachment count indicator
+                if (note.attachmentUris.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AttachFile,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = note.attachmentUris.size.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPreview(
+    attachmentUris: List<String>,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+    ) {
+        items(attachmentUris.take(3)) { uri ->
+            AttachmentPreviewItem(uri = uri)
+        }
+        if (attachmentUris.size > 3) {
+            item {
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "+${attachmentUris.size - 3}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPreviewItem(
+    uri: String,
+    modifier: Modifier = Modifier
+) {
+    val isAudio = uri.contains("audio") || uri.endsWith(".mp3") || uri.endsWith(".m4a") || uri.endsWith(".wav")
+    
+    Surface(
+        modifier = modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(8.dp)),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        if (isAudio) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.background(Color(0xFF4ECDC4).copy(alpha = 0.2f))
+            ) {
+                Icon(
+                    Icons.Default.Mic,
+                    contentDescription = null,
+                    tint = Color(0xFF4ECDC4),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        } else {
+            Image(
+                painter = rememberAsyncImagePainter(
+                    model = uri,
+                    error = rememberAsyncImagePainter(model = R.drawable.ic_launcher_foreground)
+                ),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(
+    hasSearch: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = if (hasSearch) Icons.Default.Search else Icons.AutoMirrored.Filled.Notes,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = if (hasSearch) "No notes found" else stringResource(R.string.empty_list_message),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
 }

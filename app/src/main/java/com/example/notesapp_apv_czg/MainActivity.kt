@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -42,9 +40,9 @@ import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        // Handle the permission result if needed
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Handle the permission results if needed
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,7 +50,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         createNotificationChannel()
-        requestNotificationPermission()
+        requestPermissions()
 
         val db = AppDatabase.getInstance(applicationContext)
         val repo = NoteRepository(db.noteDao())
@@ -79,30 +77,21 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("edit/{id}") { backStack ->
                             val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                            val noteId = if (id == 0L) null else id
+                            val currentNote by vm.currentNote.collectAsState()
                             
-                            DisposableEffect(Unit) {
-                                if (id != 0L) {
-                                    vm.getNoteById(id)
-                                } else {
-                                    vm.clearCurrentNote()
-                                }
-                                onDispose { vm.clearCurrentNote() }
-                            }
-
-                            val note by vm.currentNote.collectAsState()
-
                             NoteEditorScreen(
-                                note = if(id == 0L) null else note,
-                                onSave = { updatedNote ->
-                                    if (updatedNote.id == 0L) {
-                                        vm.insert(updatedNote) { newId -> scheduleNotification(updatedNote.copy(id = newId)) }
-                                    } else {
-                                        vm.update(updatedNote)
-                                        scheduleNotification(updatedNote)
+                                noteId = noteId,
+                                viewModel = vm,
+                                onCancel = { nav.popBackStack() },
+                                onSave = {
+                                    currentNote?.let { note ->
+                                        if (note.isTask && note.dueDateMillis != null) {
+                                            scheduleNotification(note)
+                                        }
                                     }
                                     nav.popBackStack()
-                                },
-                                onCancel = { nav.popBackStack() }
+                                }
                             )
                         }
                     }
@@ -124,11 +113,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestNotificationPermission() {
+    private fun requestPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
@@ -188,6 +185,11 @@ class NoteViewModelFactory(private val repo: NoteRepository) : ViewModelProvider
 @Composable
 fun DefaultPreview() {
     NotesAppAPVCZGTheme {
-        NoteListScreen(notes = emptyList())
+        NoteListScreen(
+            notes = emptyList(),
+            onAdd = {},
+            onOpen = {},
+            onDelete = {}
+        )
     }
 }
