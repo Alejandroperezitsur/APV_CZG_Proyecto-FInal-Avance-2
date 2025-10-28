@@ -41,5 +41,13 @@
     <string name="select_time">Seleccionar hora</string>
     <string name="clear_date">Borrar fecha</string>
     <string name="record_audio">Grabar audio</string>
+    <string name="attachment_image">Imagen adjunta</string>
+    <string name="image">Imagen</string>
+    <string name="voice_message">Mensaje de voz</string>
+    <string name="camera">Cámara</string>
+    <string name="gallery">Galería</string>
+    <string name="choose_image_source">Elegir origen de la imagen</string>
+    <string name="capture_photo">Tomar foto</string>
+    <string name="select_from_gallery">Seleccionar de la galería</string>
 
 </resources>
