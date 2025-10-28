@@ -229,20 +229,20 @@ fun NoteEditorScreen(
             AttachmentOptions(
                 onCameraClick = {
                     scope.launch {
-                        scaffoldState.bottomSheetState.partialExpand()
+                        scaffoldState.bottomSheetState.hide()
                         val uri = createImageUri()
                         cameraLauncher.launch(uri)
                     }
                 },
                 onGalleryClick = {
                     scope.launch {
-                        scaffoldState.bottomSheetState.partialExpand()
+                        scaffoldState.bottomSheetState.hide()
                         galleryLauncher.launch("image/*")
                     }
                 },
                 onAudioClick = {
                     scope.launch {
-                        scaffoldState.bottomSheetState.partialExpand()
+                        scaffoldState.bottomSheetState.hide()
                         audioLauncher.launch("audio/*")
                     }
                 },
@@ -255,15 +255,13 @@ fun NoteEditorScreen(
                             attachmentUris.add(uri.toString())
                         }
                         audioFile = null
+                        scope.launch { scaffoldState.bottomSheetState.hide() }
                     } else {
                         File(context.cacheDir, "audio_${UUID.randomUUID()}.mp3").also {
                             audioRecorder.start(it)
                             audioFile = it
                             isRecording = true
                         }
-                    }
-                    scope.launch {
-                        scaffoldState.bottomSheetState.partialExpand()
                     }
                 },
                 isRecording = isRecording
@@ -402,7 +400,7 @@ fun NoteEditorScreen(
                     onClick = {
                         scope.launch {
                             if (scaffoldState.bottomSheetState.isVisible) {
-                                scaffoldState.bottomSheetState.partialExpand()
+                                scaffoldState.bottomSheetState.hide()
                             } else {
                                 scaffoldState.bottomSheetState.expand()
                             }
