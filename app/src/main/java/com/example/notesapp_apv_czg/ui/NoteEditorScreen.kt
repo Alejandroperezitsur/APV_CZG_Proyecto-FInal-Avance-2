@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FormatBold
@@ -79,6 +82,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -94,6 +98,7 @@ import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
 import com.example.notesapp_apv_czg.ui.components.AttachmentOptions
 import com.example.notesapp_apv_czg.ui.components.AttachmentViewer
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -110,6 +115,7 @@ fun NoteEditorScreen(
 ) {
     val isNewNote = noteId == null
     val currentNote by viewModel.currentNote.collectAsState()
+    val currentNoteAttachments by viewModel.currentNoteAttachments.collectAsState()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val scope = rememberCoroutineScope()
 
@@ -134,6 +140,18 @@ fun NoteEditorScreen(
     val context = LocalContext.current
     var audioFile by remember { mutableStateOf<File?>(null) }
     val audioRecorder = remember { AudioRecorder(context) }
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    var recordingSeconds by remember { mutableStateOf(0) }
+
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            recordingSeconds = 0
+            while (isRecording) {
+                kotlinx.coroutines.delay(1000)
+                recordingSeconds += 1
+            }
+        }
+    }
 
     LaunchedEffect(currentNote) {
         currentNote?.let { note ->
@@ -200,6 +218,7 @@ fun NoteEditorScreen(
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -231,20 +250,20 @@ fun NoteEditorScreen(
             AttachmentOptions(
                 onCameraClick = {
                     scope.launch {
-                        scaffoldState.bottomSheetState.hide()
+                        scaffoldState.bottomSheetState.partialExpand()
                         val uri = createImageUri()
                         cameraLauncher.launch(uri)
                     }
                 },
                 onGalleryClick = {
                     scope.launch {
-                        scaffoldState.bottomSheetState.hide()
+                        scaffoldState.bottomSheetState.partialExpand()
                         galleryLauncher.launch("image/*")
                     }
                 },
                 onAudioClick = {
                     scope.launch {
-                        scaffoldState.bottomSheetState.hide()
+                        scaffoldState.bottomSheetState.partialExpand()
                         audioLauncher.launch("audio/*")
                     }
                 },
@@ -257,16 +276,21 @@ fun NoteEditorScreen(
                             attachmentUris.add(uri.toString())
                         }
                         audioFile = null
-                        scope.launch { scaffoldState.bottomSheetState.hide() }
+                        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
                     } else {
-                        File(context.cacheDir, "audio_${UUID.randomUUID()}.3gp").also {
-                            audioRecorder.start(it)
-                            audioFile = it
-                            isRecording = true
+                        try {
+                            File(context.cacheDir, "audio_${UUID.randomUUID()}.3gp").also {
+                                audioRecorder.start(it)
+                                audioFile = it
+                                isRecording = true
+                            }
+                        } catch (e: Exception) {
+                            scope.launch { snackbarHostState.showSnackbar("No se pudo iniciar la grabación") }
                         }
                     }
                 },
-                isRecording = isRecording
+                isRecording = isRecording,
+                recordingText = if (isRecording) String.format("%02d:%02d", recordingSeconds / 60, recordingSeconds % 60) else null
             )
         },
         sheetDragHandle = null,
@@ -367,6 +391,31 @@ fun NoteEditorScreen(
                     modifier = Modifier.weight(1f)
                 )
 
+                // Attachments section - combine DB attachments and new ones
+                val allAttachments = remember(currentNoteAttachments, attachmentUris.toList()) {
+                    val dbAttachments = currentNoteAttachments.map { it.uri }
+                    val newAttachments = attachmentUris.toList()
+                    (dbAttachments + newAttachments).distinct()
+                }
+
+                if (allAttachments.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AttachmentPreviewSection(
+                        attachmentUris = allAttachments,
+                        onRemoveAttachment = { uri ->
+                            // If attachment exists in DB for current note, delete from DB
+                            val noteId = currentNote?.id
+                            val isDbAttachment = currentNoteAttachments.any { it.uri == uri }
+                            if (noteId != null && isDbAttachment) {
+                                viewModel.deleteAttachment(noteId, uri)
+                            } else {
+                                // Otherwise, remove from new attachments list
+                                attachmentUris.remove(uri)
+                            }
+                        }
+                    )
+                }
+
                 if (isTask) {
                     Spacer(modifier = Modifier.height(16.dp))
                     TaskOptions(
@@ -401,10 +450,11 @@ fun NoteEditorScreen(
                 FloatingActionButton(
                     onClick = {
                         scope.launch {
-                            if (scaffoldState.bottomSheetState.isVisible) {
-                                scaffoldState.bottomSheetState.hide()
+                            val sheetState = scaffoldState.bottomSheetState
+                            if (sheetState.currentValue == androidx.compose.material3.SheetValue.Expanded) {
+                                sheetState.partialExpand()
                             } else {
-                                scaffoldState.bottomSheetState.expand()
+                                sheetState.expand()
                             }
                         }
                     },
@@ -436,6 +486,96 @@ fun NoteEditorScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPreviewSection(
+    attachmentUris: List<String>,
+    onRemoveAttachment: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.attachments),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(attachmentUris) { uri ->
+                    AttachmentPreviewItem(
+                        uri = uri,
+                        onRemove = { onRemoveAttachment(uri) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPreviewItem(
+    uri: String,
+    onRemove: () -> Unit
+) {
+    Box {
+        Card(
+            modifier = Modifier.size(80.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            if (uri.contains("audio") || uri.endsWith(".3gp") || uri.endsWith(".mp3")) {
+                // Audio preview
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AudioFile,
+                        contentDescription = "Audio",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            } else {
+                // Image preview
+                AsyncImage(
+                    model = uri,
+                    contentDescription = "Attachment",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+        // Remove button
+        IconButton(
+            onClick = onRemove,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(24.dp)
+                .background(
+                    MaterialTheme.colorScheme.error,
+                    CircleShape
+                )
+        ) {
+            Icon(
+                Icons.Default.Clear,
+                contentDescription = "Remove",
+                tint = MaterialTheme.colorScheme.onError,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

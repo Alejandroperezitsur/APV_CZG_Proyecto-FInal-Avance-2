@@ -11,4 +11,7 @@ interface MultimediaDao {
 
     @Query("SELECT * FROM multimedia WHERE noteId = :noteId")
     suspend fun getByNoteId(noteId: Long): List<Multimedia>
+
+    @Query("DELETE FROM multimedia WHERE noteId = :noteId AND uri = :uri")
+    suspend fun deleteByNoteIdAndUri(noteId: Long, uri: String): Int
 }
