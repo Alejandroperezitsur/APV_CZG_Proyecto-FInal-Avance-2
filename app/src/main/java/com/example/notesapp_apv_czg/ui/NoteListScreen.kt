@@ -545,7 +545,7 @@ private fun AttachmentPreviewItem(
     uri: String,
     modifier: Modifier = Modifier
 ) {
-    val isAudio = uri.contains("audio") || uri.endsWith(".mp3") || uri.endsWith(".m4a") || uri.endsWith(".wav")
+    val isAudio = uri.contains("audio") || uri.endsWith(".mp3", ignoreCase = true) || uri.endsWith(".m4a", ignoreCase = true) || uri.endsWith(".wav", ignoreCase = true) || uri.endsWith(".3gp", ignoreCase = true)
     
     Surface(
         modifier = modifier
@@ -599,7 +599,7 @@ private fun EmptyState(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = if (hasSearch) "No notes found" else stringResource(R.string.empty_list_message),
+            text = if (hasSearch) stringResource(R.string.no_notes_found) else stringResource(R.string.empty_list_message),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center

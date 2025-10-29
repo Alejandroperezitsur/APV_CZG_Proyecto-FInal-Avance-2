@@ -106,7 +106,7 @@ fun NoteEditorScreen(
     noteId: Long?,
     viewModel: NoteViewModel,
     onCancel: () -> Unit,
-    onSave: () -> Unit
+    onSave: (Note) -> Unit
 ) {
     val isNewNote = noteId == null
     val currentNote by viewModel.currentNote.collectAsState()
@@ -182,11 +182,13 @@ fun NoteEditorScreen(
         )
 
         if (isNewNote) {
-            viewModel.insert(note)
+            viewModel.insert(note) { id ->
+                onSave(note.copy(id = id))
+            }
         } else {
             viewModel.update(note)
+            onSave(note)
         }
-        onSave()
     }
 
     fun createImageUri(): Uri {
@@ -257,7 +259,7 @@ fun NoteEditorScreen(
                         audioFile = null
                         scope.launch { scaffoldState.bottomSheetState.hide() }
                     } else {
-                        File(context.cacheDir, "audio_${UUID.randomUUID()}.mp3").also {
+                        File(context.cacheDir, "audio_${UUID.randomUUID()}.3gp").also {
                             audioRecorder.start(it)
                             audioFile = it
                             isRecording = true

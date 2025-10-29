@@ -49,5 +49,6 @@
     <string name="choose_image_source">Elegir origen de la imagen</string>
     <string name="capture_photo">Tomar foto</string>
     <string name="select_from_gallery">Seleccionar de la galería</string>
+    <string name="no_notes_found">No se encontraron notas</string>
 
 </resources>

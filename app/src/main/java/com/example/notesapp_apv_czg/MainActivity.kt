@@ -41,7 +41,7 @@ import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
+    ) { _ ->
         // Handle the permission results if needed
     }
 
@@ -78,17 +78,14 @@ class MainActivity : ComponentActivity() {
                         composable("edit/{id}") { backStack ->
                             val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
                             val noteId = if (id == 0L) null else id
-                            val currentNote by vm.currentNote.collectAsState()
                             
                             NoteEditorScreen(
                                 noteId = noteId,
                                 viewModel = vm,
                                 onCancel = { nav.popBackStack() },
-                                onSave = {
-                                    currentNote?.let { note ->
-                                        if (note.isTask && note.dueDateMillis != null) {
-                                            scheduleNotification(note)
-                                        }
+                                onSave = { savedNote ->
+                                    if (savedNote.isTask && savedNote.dueDateMillis != null) {
+                                        scheduleNotification(savedNote)
                                     }
                                     nav.popBackStack()
                                 }
@@ -148,7 +145,11 @@ class MainActivity : ComponentActivity() {
                         // App cannot schedule exact alarms. Maybe navigate to settings.
                         return
                     }
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, it, pendingIntent)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
+                    }
                 } catch (e: SecurityException) {
                     // Handle case where permission is denied
                 }
