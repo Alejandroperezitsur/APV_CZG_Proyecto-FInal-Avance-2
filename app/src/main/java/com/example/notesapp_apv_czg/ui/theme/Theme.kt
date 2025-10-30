@@ -35,40 +35,10 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun NotesAppAPVCZGTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    customTheme: AppTheme? = null,
     content: @Composable () -> Unit
 ) {
-    val baseScheme: ColorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
-    val colorScheme = customTheme?.let { t ->
-        baseScheme.copy(
-            primary = t.primary,
-            secondary = t.secondary,
-            tertiary = t.tertiary,
-            background = t.background,
-            surface = t.surface,
-            surfaceVariant = t.surfaceVariant,
-            onPrimary = t.onPrimary,
-            onSecondary = t.onSecondary,
-            onTertiary = t.onTertiary,
-            onBackground = t.onBackground,
-            onSurface = t.onSurface,
-            outline = t.outline,
-            error = t.error
-        )
-    } ?: baseScheme
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = ThemeManager.getColorScheme(),
         typography = Typography,
         content = content
     )

@@ -904,22 +904,33 @@ fun NoteCardContent(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Description preview
-            note.description?.takeIf { it.isNotEmpty() }?.let { description ->
+            // Description preview and attachments
+            if (!note.isLocked) {
+                note.description?.takeIf { it.isNotEmpty() }?.let { description ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Attachments preview
+                if (note.attachmentUris.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AttachmentPreview(attachmentUris = note.attachmentUris)
+                }
+            } else {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = description,
+                    text = "Contenido bloqueado",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                    maxLines = 3,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-
-            // Attachments preview
-            if (note.attachmentUris.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                AttachmentPreview(attachmentUris = note.attachmentUris)
             }
 
             // Footer with date and due date
@@ -943,7 +954,7 @@ fun NoteCardContent(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Attachment count indicator
-                if (note.attachmentUris.isNotEmpty()) {
+                if (!note.isLocked && note.attachmentUris.isNotEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)

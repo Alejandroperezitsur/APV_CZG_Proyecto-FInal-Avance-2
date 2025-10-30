@@ -62,10 +62,7 @@ class MainActivity : ComponentActivity() {
         val repo = NoteRepository(db.noteDao())
 
         setContent {
-            val dark = isSystemInDarkTheme()
-            val ctx = LocalContext.current
-            val themeController = rememberThemeController(ctx, dark)
-            NotesAppAPVCZGTheme(darkTheme = dark, customTheme = themeController.currentTheme) {
+            NotesAppAPVCZGTheme {
                 val nav = rememberNavController()
                 val vm: NoteViewModel = viewModel(factory = NoteViewModelFactory(repo))
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -108,8 +105,11 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("settings/theme") {
-                            val scope = rememberCoroutineScope()
-                            val dark = isSystemInDarkTheme()
+                            ThemeSettingsScreen(
+                                onNavigateUp = { nav.popBackStack() },
+                                currentScheme = ThemeManager.getCurrentScheme(),
+                                onSchemeSelected = { scheme -> ThemeManager.setColorScheme(scheme) }
+                            )
                             com.example.notesapp_apv_czg.ui.settings.ThemeSettingsScreen(
                                 currentTheme = themeController.currentTheme,
                                 currentMode = themeController.currentMode,
