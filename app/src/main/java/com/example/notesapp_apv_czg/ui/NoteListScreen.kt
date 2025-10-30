@@ -3,15 +3,47 @@ package com.example.notesapp_apv_czg.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,32 +58,27 @@ import com.example.notesapp_apv_czg.data.Note
 import java.text.SimpleDateFormat
 import java.util.Date
 
-enum class NoteFilter { ALL, NOTES, TASKS }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteListScreen(
     notes: List<Note>,
+    filter: NoteFilter,
+    onFilterChange: (NoteFilter) -> Unit,
+    modifier: Modifier = Modifier,
+    showFilterBar: Boolean = true,
     onAdd: () -> Unit = {},
     onOpen: (Long) -> Unit = {},
     onDelete: (Note) -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
-    var filter by remember { mutableStateOf(NoteFilter.ALL) }
     var noteToDelete by remember { mutableStateOf<Note?>(null) }
 
-    val filteredNotes = remember(notes, filter, query) {
-        // The rest of the filtering logic remains the same
-        val notesAfterFilter = when (filter) {
-            NoteFilter.NOTES -> notes.filter { !it.isTask }
-            NoteFilter.TASKS -> notes.filter { it.isTask }
-            NoteFilter.ALL -> notes
-        }
+    val filteredNotes = remember(notes, query) {
         if (query.isBlank()) {
-            notesAfterFilter
+            notes
         } else {
-            notesAfterFilter.filter {
+            notes.filter {
                 it.title.contains(query, ignoreCase = true) ||
                 (it.description?.contains(query, ignoreCase = true) ?: false)
             }
@@ -59,6 +86,7 @@ fun NoteListScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             HomeAppBar(
                 isSearchActive = isSearchActive,
@@ -77,7 +105,9 @@ fun NoteListScreen(
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
-            FilterChips(selectedFilter = filter, onFilterChange = { filter = it })
+            if (showFilterBar) {
+                FilterChips(selectedFilter = filter, onFilterChange = onFilterChange)
+            }
             if (filteredNotes.isEmpty()) {
                 EmptyListView()
             } else {

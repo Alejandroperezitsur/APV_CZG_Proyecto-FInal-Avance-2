@@ -1,15 +1,20 @@
 package com.example.notesapp_apv_czg.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.notesapp_apv_czg.NotesApplication
 import com.example.notesapp_apv_czg.data.Note
-import com.example.notesapp_apv_czg.data.NoteRepository
+import com.example.notesapp_apv_czg.data.NotesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class EditorUiState(
@@ -24,25 +29,28 @@ data class EditorUiState(
     val isNewNote: Boolean = true
 )
 
-class NoteViewModel(private val repo: NoteRepository) : ViewModel() {
-    private val _notes = MutableStateFlow<List<Note>>(emptyList()) //
-    val notes: StateFlow<List<Note>> = _notes.asStateFlow()
-
+class NoteViewModel(private val repo: NotesRepository) : ViewModel() {
+    private val _notes = repo.getAllNotes()
+    private val _filter = MutableStateFlow(NoteFilter.ALL)
     private val _editorState = MutableStateFlow(EditorUiState())
+
     val editorState: StateFlow<EditorUiState> = _editorState.asStateFlow()
+    val filter: StateFlow<NoteFilter> = _filter.asStateFlow()
 
-    init {
-        repo.getAllNotes()
-            .onEach { _notes.value = it }
-            .catch { /* handle errors */ }
-            .launchIn(viewModelScope)
-    }
+    val notes: StateFlow<List<Note>> = combine(_notes, _filter) { notes, filter ->
+        when (filter) {
+            NoteFilter.ALL -> notes
+            NoteFilter.NOTES -> notes.filter { !it.isTask }
+            NoteFilter.TASKS -> notes.filter { it.isTask }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000L),
+        initialValue = emptyList()
+    )
 
-    fun search(q: String) {
-        repo.search(q)
-            .onEach { _notes.value = it }
-            .catch { /* handle */ }
-            .launchIn(viewModelScope)
+    fun onFilterChange(newFilter: NoteFilter) {
+        _filter.value = newFilter
     }
 
     // Editor functions
@@ -128,19 +136,18 @@ class NoteViewModel(private val repo: NoteRepository) : ViewModel() {
             }
         }
     }
-    
-    fun insert(note: Note, onResult: (Long) -> Unit = {}) {
-        viewModelScope.launch {
-            val id = repo.insert(note)
-            onResult(id)
-        }
-    }
-
-    fun update(note: Note) {
-        viewModelScope.launch { repo.update(note) }
-    }
 
     fun delete(note: Note) {
         viewModelScope.launch { repo.delete(note) }
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val application = (this[APPLICATION_KEY] as NotesApplication)
+                val notesRepository = application.container
+                NoteViewModel(repo = notesRepository)
+            }
+        }
     }
 }

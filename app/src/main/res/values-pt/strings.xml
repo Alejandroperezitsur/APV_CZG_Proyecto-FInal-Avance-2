@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Notas</string>
+    <string name="search">Pesquisar</string>
+    <string name="search_notes">Pesquisar notas</string>
+    <string name="new_note_task">Nova nota/tarefa</string>
+    <string name="title">Título</string>
+    <string name="description">Descrição</string>
+    <string name="note">Nota</string>
+    <string name="task">Tarefa</string>
+    <string name="completed">Concluída</string>
+    <string name="priority">Prioridade</string>
+    <string name="low">Baixa</string>
+    <string name="medium">Média</string>
+    <string name="high">Alta</string>
+    <string name="due_date_time">Data e hora de vencimento</string>
+    <string name="set_due_date">Definir data de vencimento</string>
+    <string name="set_date">Definir Data</string>
+    <string name="set_time">Definir Hora</string>
+    <string name="due_date">Vencimento: %1$s</string>
+    <string name="add_image">Adicionar Imagem</string>
+    <string name="add_audio">Adicionar Áudio</string>
+    <string name="attachments">Anexos</string>
+    <string name="remove_attachment">Remover anexo</string>
+    <string name="save">Salvar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Excluir</string>
+    <string name="delete_note_title">Excluir Nota</string>
+    <string name="delete_note_confirmation">Tem certeza de que deseja excluir esta nota? Esta ação não pode ser desfeita.</string>
+    <string name="channel_name">Lembretes de Tarefas</string>
+    <string name="channel_description">Notificações para lembretes de tarefas</string>
+    <string name="task_reminder">Lembrete de Tarefa</string>
+    <string name="task_due_notification">Uma tarefa está vencendo.</string>
+    <string name="all">Todos</string>
+    <string name="notes">Notas</string>
+    <string name="tasks">Tarefas</string>
+    <string name="empty_list_message">Nenhuma nota ainda!\nToque no botão + para criar uma.</string>
+</resources>
