@@ -1,6 +1,6 @@
 package com.example.notesapp_apv_czg.data
 
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.Flow // implemtar la otra interface,
 
 class NoteRepository(private val dao: NoteDao) {
     fun getAllNotes(): Flow<List<Note>> = dao.getAllNotes()
@@ -15,3 +15,4 @@ class NoteRepository(private val dao: NoteDao) {
 
     suspend fun delete(note: Note) = dao.delete(note)
 }
+

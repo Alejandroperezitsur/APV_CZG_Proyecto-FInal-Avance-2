@@ -25,7 +25,7 @@ data class EditorUiState(
 )
 
 class NoteViewModel(private val repo: NoteRepository) : ViewModel() {
-    private val _notes = MutableStateFlow<List<Note>>(emptyList())
+    private val _notes = MutableStateFlow<List<Note>>(emptyList()) //
     val notes: StateFlow<List<Note>> = _notes.asStateFlow()
 
     private val _editorState = MutableStateFlow(EditorUiState())
