@@ -13,8 +13,9 @@ object ThemeManager {
     
     fun getCurrentScheme(): ColorSchemeOption = currentScheme.value
     
-    fun setColorScheme(scheme: ColorSchemeOption) {
+    suspend fun setColorScheme(scheme: ColorSchemeOption) {
         currentScheme.value = scheme
+        saveTheme(scheme)
     }
     
     @Composable
@@ -27,6 +28,10 @@ object ThemeManager {
             surface = scheme.surface,
             background = scheme.background
         )
+    }
+
+    suspend fun saveTheme(scheme: ColorSchemeOption) {
+        currentScheme.value = scheme
     }
 }
 

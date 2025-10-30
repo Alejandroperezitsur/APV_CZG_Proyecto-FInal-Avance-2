@@ -42,7 +42,8 @@ import com.example.notesapp_apv_czg.ui.NoteEditorScreen
 import com.example.notesapp_apv_czg.ui.NoteListScreen
 import com.example.notesapp_apv_czg.ui.NoteViewModel
 import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
-import com.example.notesapp_apv_czg.ui.theme.rememberThemeController
+import com.example.notesapp_apv_czg.ui.theme.ThemeSettingsScreen
+import com.example.notesapp_apv_czg.ui.theme.ThemeManager
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
@@ -105,19 +106,15 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("settings/theme") {
+                            val scope = rememberCoroutineScope()
                             ThemeSettingsScreen(
                                 onNavigateUp = { nav.popBackStack() },
                                 currentScheme = ThemeManager.getCurrentScheme(),
-                                onSchemeSelected = { scheme -> ThemeManager.setColorScheme(scheme) }
-                            )
-                            com.example.notesapp_apv_czg.ui.settings.ThemeSettingsScreen(
-                                currentTheme = themeController.currentTheme,
-                                currentMode = themeController.currentMode,
-                                onSetMode = { mode -> scope.launch { themeController.setMode(mode, dark) } },
-                                onSelectPreset = { name -> scope.launch { themeController.setTheme(name) } },
-                                onSetCustom = { theme -> scope.launch { themeController.setCustomTheme(theme) } },
-                                onResetCustom = { scope.launch { themeController.resetCustom(dark) } },
-                                onBack = { nav.popBackStack() }
+                                onSchemeSelected = { scheme -> 
+                                    scope.launch {
+                                        ThemeManager.setColorScheme(scheme)
+                                    }
+                                }
                             )
                         }
                     }
