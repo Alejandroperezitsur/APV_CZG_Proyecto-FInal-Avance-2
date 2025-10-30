@@ -20,33 +20,34 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.launch
 import com.example.notesapp_apv_czg.broadcastreceivers.NotificationReceiver
 import com.example.notesapp_apv_czg.data.AppDatabase
-import com.example.notesapp_apv_czg.data.Multimedia
-import com.example.notesapp_apv_czg.data.MultimediaDao
 import com.example.notesapp_apv_czg.data.Note
 import com.example.notesapp_apv_czg.data.NoteRepository
 import com.example.notesapp_apv_czg.ui.NoteEditorScreen
 import com.example.notesapp_apv_czg.ui.NoteListScreen
 import com.example.notesapp_apv_czg.ui.NoteViewModel
 import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
+import com.example.notesapp_apv_czg.ui.theme.rememberThemeController
 
 class MainActivity : ComponentActivity() {
-    private lateinit var appDb: AppDatabase
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
+    ) { permissions ->
         // Handle the permission results if needed
     }
 
@@ -57,13 +58,16 @@ class MainActivity : ComponentActivity() {
         createNotificationChannel()
         requestPermissions()
 
-        appDb = AppDatabase.getInstance(applicationContext)
-        val repo = NoteRepository(appDb.noteDao())
+        val db = AppDatabase.getInstance(applicationContext)
+        val repo = NoteRepository(db.noteDao())
 
         setContent {
-            NotesAppAPVCZGTheme {
+            val dark = isSystemInDarkTheme()
+            val ctx = LocalContext.current
+            val themeController = rememberThemeController(ctx, dark)
+            NotesAppAPVCZGTheme(darkTheme = dark, customTheme = themeController.currentTheme) {
                 val nav = rememberNavController()
-                val vm: NoteViewModel = viewModel(factory = NoteViewModelFactory(repo, appDb.multimediaDao()))
+                val vm: NoteViewModel = viewModel(factory = NoteViewModelFactory(repo))
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     NavHost(navController = nav, startDestination = "list", modifier = Modifier.padding(innerPadding)) {
                         composable("list") {
@@ -77,25 +81,43 @@ class MainActivity : ComponentActivity() {
                                 onDelete = {
                                     vm.delete(it)
                                     cancelNotification(it)
-                                }
+                                },
+                                onToggleLock = { note, locked ->
+                                    vm.update(note.copy(isLocked = locked))
+                                },
+                                onOpenThemeSettings = { nav.navigate("settings/theme") }
                             )
                         }
                         composable("edit/{id}") { backStack ->
                             val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
                             val noteId = if (id == 0L) null else id
+                            val currentNote by vm.currentNote.collectAsState()
                             
                             NoteEditorScreen(
                                 noteId = noteId,
                                 viewModel = vm,
                                 onCancel = { nav.popBackStack() },
-                                onSave = { savedNote ->
-                                    if (savedNote.isTask && savedNote.dueDateMillis != null) {
-                                        scheduleNotification(savedNote)
+                                onSave = {
+                                    currentNote?.let { note ->
+                                        if (note.isTask && note.dueDateMillis != null) {
+                                            scheduleNotification(note)
+                                        }
                                     }
-                                    // Sincronizar adjuntos con la tabla multimedia
-                                    syncAttachmentsToDb(savedNote)
                                     nav.popBackStack()
                                 }
+                            )
+                        }
+                        composable("settings/theme") {
+                            val scope = rememberCoroutineScope()
+                            val dark = isSystemInDarkTheme()
+                            com.example.notesapp_apv_czg.ui.settings.ThemeSettingsScreen(
+                                currentTheme = themeController.currentTheme,
+                                currentMode = themeController.currentMode,
+                                onSetMode = { mode -> scope.launch { themeController.setMode(mode, dark) } },
+                                onSelectPreset = { name -> scope.launch { themeController.setTheme(name) } },
+                                onSetCustom = { theme -> scope.launch { themeController.setCustomTheme(theme) } },
+                                onResetCustom = { scope.launch { themeController.resetCustom(dark) } },
+                                onBack = { nav.popBackStack() }
                             )
                         }
                     }
@@ -127,9 +149,6 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.CAMERA)
-        }
 
         if (permissionsToRequest.isNotEmpty()) {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
@@ -155,11 +174,7 @@ class MainActivity : ComponentActivity() {
                         // App cannot schedule exact alarms. Maybe navigate to settings.
                         return
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, it, pendingIntent)
-                    } else {
-                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
-                    }
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
                 } catch (e: SecurityException) {
                     // Handle case where permission is denied
                 }
@@ -167,33 +182,6 @@ class MainActivity : ComponentActivity() {
         } ?: run {
             // If due date is null, cancel any existing alarm for this note
             cancelNotification(note)
-        }
-    }
-
-    private fun syncAttachmentsToDb(note: Note) {
-        // Insertar adjuntos en la tabla Multimedia con tipo detectado
-        val dao = appDb.multimediaDao()
-        val attachments = note.attachmentUris
-        if (attachments.isEmpty()) return
-        val typeFor = { uri: String ->
-            val lower = uri.lowercase()
-            if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav") || lower.endsWith(".3gp") || lower.contains("audio")) "audio" else "image"
-        }
-        // Ejecutar en segundo plano
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val existing = dao.getByNoteId(note.id)
-                val existingUris = existing.map { it.uri }.toSet()
-                attachments.filter { it !in existingUris }.forEach { uri ->
-                    try {
-                        dao.insert(com.example.notesapp_apv_czg.data.Multimedia(
-                            noteId = note.id,
-                            uri = uri,
-                            type = typeFor(uri)
-                        ))
-                    } catch (_: Exception) { /* omit */ }
-                }
-            } catch (_: Exception) { /* omit */ }
         }
     }
 
@@ -209,11 +197,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-class NoteViewModelFactory(private val repo: NoteRepository, private val multimediaDao: MultimediaDao) : ViewModelProvider.Factory {
+class NoteViewModelFactory(private val repo: NoteRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(NoteViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return NoteViewModel(repo, multimediaDao) as T
+            return NoteViewModel(repo) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

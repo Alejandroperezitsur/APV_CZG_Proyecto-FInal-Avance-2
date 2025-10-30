@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,6 +40,8 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FormatBold
@@ -46,6 +50,10 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Task
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import com.example.notesapp_apv_czg.security.PinManager
+import com.example.notesapp_apv_czg.ui.components.PinDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.BottomSheetScaffoldState
@@ -66,8 +74,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -99,11 +109,29 @@ import com.example.notesapp_apv_czg.data.Note
 import com.example.notesapp_apv_czg.ui.components.AttachmentOptions
 import com.example.notesapp_apv_czg.ui.components.AttachmentViewer
 import coil.compose.AsyncImage
+import android.media.MediaPlayer
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.UUID
+
+private object AudioPlaybackCoordinator {
+    private val players = mutableSetOf<MediaPlayer>()
+    fun play(player: MediaPlayer) {
+        players.add(player)
+        try { player.start() } catch (_: Exception) {}
+    }
+    fun pause(player: MediaPlayer) {
+        try { player.pause() } catch (_: Exception) {}
+        players.add(player)
+    }
+    fun pauseAll() {
+        players.forEach { p -> try { p.pause() } catch (_: Exception) {} }
+        players.clear()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +143,6 @@ fun NoteEditorScreen(
 ) {
     val isNewNote = noteId == null
     val currentNote by viewModel.currentNote.collectAsState()
-    val currentNoteAttachments by viewModel.currentNoteAttachments.collectAsState()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val scope = rememberCoroutineScope()
 
@@ -135,6 +162,9 @@ fun NoteEditorScreen(
     var priority by remember { mutableStateOf(0) }
     var dueDateMillis by remember { mutableStateOf<Long?>(null) }
     val attachmentUris = remember { mutableStateListOf<String>() }
+    var isLocked by remember { mutableStateOf(false) }
+    var showPinUnlockDialog by remember { mutableStateOf(false) }
+    var showPinSetDialog by remember { mutableStateOf(false) }
 
     var isRecording by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -163,6 +193,14 @@ fun NoteEditorScreen(
             dueDateMillis = note.dueDateMillis
             attachmentUris.clear()
             attachmentUris.addAll(note.attachmentUris)
+            isLocked = note.isLocked
+        }
+    }
+
+    // Pause audio when leaving the editor
+    DisposableEffect(Unit) {
+        onDispose {
+            AudioPlaybackCoordinator.pauseAll()
         }
     }
 
@@ -196,7 +234,8 @@ fun NoteEditorScreen(
             isCompleted = isCompleted,
             priority = priority,
             dueDateMillis = dueDateMillis,
-            attachmentUris = attachmentUris.toList()
+            attachmentUris = attachmentUris.toList(),
+            isLocked = isLocked
         )
 
         if (isNewNote) {
@@ -236,6 +275,38 @@ fun NoteEditorScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.cancel)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        if (isLocked) {
+                            showPinUnlockDialog = true
+                        } else {
+                            if (!PinManager.isPinSet(context)) {
+                                showPinSetDialog = true
+                            } else {
+                                isLocked = true
+                                if (!isNewNote) {
+                                    val updated = Note(
+                                        id = currentNote?.id ?: 0,
+                                        title = title,
+                                        description = description.text,
+                                        isTask = isTask,
+                                        isCompleted = isCompleted,
+                                        priority = priority,
+                                        dueDateMillis = dueDateMillis,
+                                        attachmentUris = attachmentUris.toList(),
+                                        isLocked = true
+                                    )
+                                    viewModel.update(updated)
+                                }
+                            }
+                        }
+                    }) {
+                        Icon(
+                            imageVector = if (isLocked) Icons.Filled.LockOpen else Icons.Filled.Lock,
+                            contentDescription = if (isLocked) "Desbloquear" else "Bloquear"
                         )
                     }
                 },
@@ -289,8 +360,7 @@ fun NoteEditorScreen(
                         }
                     }
                 },
-                isRecording = isRecording,
-                recordingText = if (isRecording) String.format("%02d:%02d", recordingSeconds / 60, recordingSeconds % 60) else null
+                isRecording = isRecording
             )
         },
         sheetDragHandle = null,
@@ -310,6 +380,57 @@ fun NoteEditorScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // PIN dialogs
+                if (showPinSetDialog) {
+                    PinDialog(
+                        onSuccess = {
+                            showPinSetDialog = false
+                            isLocked = true
+                            if (!isNewNote) {
+                                val updated = Note(
+                                    id = currentNote?.id ?: 0,
+                                    title = title,
+                                    description = description.text,
+                                    isTask = isTask,
+                                    isCompleted = isCompleted,
+                                    priority = priority,
+                                    dueDateMillis = dueDateMillis,
+                                    attachmentUris = attachmentUris.toList(),
+                                    isLocked = true
+                                )
+                                viewModel.update(updated)
+                            }
+                        },
+                        onCancel = { showPinSetDialog = false },
+                        title = "Configurar PIN"
+                    )
+                }
+
+                if (showPinUnlockDialog) {
+                    PinDialog(
+                        onSuccess = {
+                            showPinUnlockDialog = false
+                            isLocked = false
+                            if (!isNewNote) {
+                                val updated = Note(
+                                    id = currentNote?.id ?: 0,
+                                    title = title,
+                                    description = description.text,
+                                    isTask = isTask,
+                                    isCompleted = isCompleted,
+                                    priority = priority,
+                                    dueDateMillis = dueDateMillis,
+                                    attachmentUris = attachmentUris.toList(),
+                                    isLocked = false
+                                )
+                                viewModel.update(updated)
+                            }
+                        },
+                        onCancel = { showPinUnlockDialog = false },
+                        title = "Desbloquear nota"
+                    )
+                }
+
                 // Note type selection with improved design
                 NoteTypeSelection(
                     isTask = isTask,
@@ -321,7 +442,8 @@ fun NoteEditorScreen(
                 // Title field with improved styling
                 TitleTextField(
                     value = title,
-                    onValueChange = { title = it }
+                    onValueChange = { title = it },
+                    enabled = !isLocked
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -329,6 +451,7 @@ fun NoteEditorScreen(
                 // Format toolbar with WhatsApp-like design
                 FormatToolbar(
                     onBold = {
+                        if (isLocked) return@FormatToolbar
                         val selection = description.selection
                         if (!selection.collapsed) {
                             val builder = AnnotatedString.Builder(description.annotatedString)
@@ -342,6 +465,7 @@ fun NoteEditorScreen(
                         }
                     },
                     onItalic = {
+                        if (isLocked) return@FormatToolbar
                         val selection = description.selection
                         if (!selection.collapsed) {
                             val builder = AnnotatedString.Builder(description.annotatedString)
@@ -355,6 +479,7 @@ fun NoteEditorScreen(
                         }
                     },
                     onChecklist = {
+                        if (isLocked) return@FormatToolbar
                         val selection = description.selection
                         val lineStart = description.text.lastIndexOf('\n', selection.start - 1)
                             .let { if (it < 0) 0 else it + 1 }
@@ -368,6 +493,7 @@ fun NoteEditorScreen(
                         )
                     },
                     onBullet = {
+                        if (isLocked) return@FormatToolbar
                         val selection = description.selection
                         val lineStart = description.text.lastIndexOf('\n', selection.start - 1)
                             .let { if (it < 0) 0 else it + 1 }
@@ -388,30 +514,17 @@ fun NoteEditorScreen(
                 DescriptionTextField(
                     value = description,
                     onValueChange = { description = it },
+                    enabled = !isLocked,
                     modifier = Modifier.weight(1f)
                 )
 
-                // Attachments section - combine DB attachments and new ones
-                val allAttachments = remember(currentNoteAttachments, attachmentUris.toList()) {
-                    val dbAttachments = currentNoteAttachments.map { it.uri }
-                    val newAttachments = attachmentUris.toList()
-                    (dbAttachments + newAttachments).distinct()
-                }
-
-                if (allAttachments.isNotEmpty()) {
+                // Attachments section
+                if (attachmentUris.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
                     AttachmentPreviewSection(
-                        attachmentUris = allAttachments,
+                        attachmentUris = attachmentUris,
                         onRemoveAttachment = { uri ->
-                            // If attachment exists in DB for current note, delete from DB
-                            val noteId = currentNote?.id
-                            val isDbAttachment = currentNoteAttachments.any { it.uri == uri }
-                            if (noteId != null && isDbAttachment) {
-                                viewModel.deleteAttachment(noteId, uri)
-                            } else {
-                                // Otherwise, remove from new attachments list
-                                attachmentUris.remove(uri)
-                            }
+                            attachmentUris.remove(uri)
                         }
                     )
                 }
@@ -429,12 +542,6 @@ fun NoteEditorScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Attachments with improved design
-                AttachmentViewer(
-                    attachmentUris = attachmentUris,
-                    onRemoveAttachment = { uri -> attachmentUris.remove(uri) }
-                )
 
                 Spacer(modifier = Modifier.height(100.dp)) // Space for FABs
             }
@@ -510,14 +617,34 @@ private fun AttachmentPreviewSection(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(attachmentUris) { uri ->
-                    AttachmentPreviewItem(
-                        uri = uri,
-                        onRemove = { onRemoveAttachment(uri) }
-                    )
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val isWide = maxWidth >= 600.dp
+                if (isWide) {
+                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                        columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(minSize = 96.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.heightIn(max = 240.dp)
+                    ) {
+                        items(attachmentUris.size) { index ->
+                            val uri = attachmentUris[index]
+                            AttachmentPreviewItem(
+                                uri = uri,
+                                onRemove = { onRemoveAttachment(uri) }
+                            )
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(attachmentUris) { uri ->
+                            AttachmentPreviewItem(
+                                uri = uri,
+                                onRemove = { onRemoveAttachment(uri) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -529,34 +656,85 @@ private fun AttachmentPreviewItem(
     uri: String,
     onRemove: () -> Unit
 ) {
+    val isAudio = uri.contains("audio") || uri.endsWith(".3gp") || uri.endsWith(".mp3") || uri.endsWith(".wav") || uri.endsWith(".m4a")
+    val isImage = uri.contains("image") || uri.endsWith(".jpg") || uri.endsWith(".jpeg") || uri.endsWith(".png") || uri.endsWith(".gif")
+    
     Box {
         Card(
-            modifier = Modifier.size(80.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            if (uri.contains("audio") || uri.endsWith(".3gp") || uri.endsWith(".mp3")) {
-                // Audio preview
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AudioFile,
-                        contentDescription = "Audio",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
+            modifier = Modifier.size(96.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = when {
+                    isAudio -> Color(0xFF4ECDC4).copy(alpha = 0.1f)
+                    isImage -> MaterialTheme.colorScheme.surfaceVariant
+                    else -> MaterialTheme.colorScheme.secondaryContainer
                 }
-            } else {
-                // Image preview
-                AsyncImage(
-                    model = uri,
-                    contentDescription = "Attachment",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    isAudio -> {
+                        // Audio preview with playback controls
+                        AudioAttachmentPlayer(uri = uri)
+                    }
+                    isImage -> {
+                        // Image preview
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = stringResource(R.string.attachment_image),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    else -> {
+                        // Generic file preview
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.AttachFile,
+                                contentDescription = "File attachment",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.attachment_file_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+                
+                // Type indicator badge
+                if (isAudio || isImage) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(4.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.7f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = when {
+                                isAudio -> stringResource(R.string.attachment_audio_label)
+                                isImage -> stringResource(R.string.image)
+                                else -> stringResource(R.string.attachment_file_label)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 8.sp
+                        )
+                    }
+                }
             }
         }
         // Remove button
@@ -572,7 +750,7 @@ private fun AttachmentPreviewItem(
         ) {
             Icon(
                 Icons.Default.Clear,
-                contentDescription = "Remove",
+                contentDescription = "Remove attachment",
                 tint = MaterialTheme.colorScheme.onError,
                 modifier = Modifier.size(16.dp)
             )
@@ -581,10 +759,123 @@ private fun AttachmentPreviewItem(
 }
 
 @Composable
+private fun AudioAttachmentPlayer(uri: String) {
+    val context = LocalContext.current
+    var isPrepared by remember { mutableStateOf(false) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var durationMs by remember { mutableStateOf(0) }
+    var positionMs by remember { mutableStateOf(0) }
+
+    val mediaPlayer = remember(uri) { MediaPlayer() }
+
+    DisposableEffect(uri) {
+        try {
+            val contentUri = android.net.Uri.parse(uri)
+            val pfd = context.contentResolver.openFileDescriptor(contentUri, "r")
+            mediaPlayer.reset()
+            if (pfd != null) {
+                mediaPlayer.setDataSource(pfd.fileDescriptor)
+                pfd.close()
+            } else {
+                // Fallback for file:// or other schemes
+                try {
+                    mediaPlayer.setDataSource(context, contentUri)
+                } catch (_: Exception) {
+                    mediaPlayer.setDataSource(uri)
+                }
+            }
+            mediaPlayer.prepare()
+            isPrepared = true
+            durationMs = mediaPlayer.duration
+            mediaPlayer.setOnCompletionListener {
+                isPlaying = false
+                positionMs = 0
+            }
+        } catch (_: Exception) {
+            isPrepared = false
+        }
+        onDispose {
+            try { mediaPlayer.release() } catch (_: Exception) {}
+        }
+    }
+
+    LaunchedEffect(isPlaying, isPrepared) {
+        if (isPrepared) {
+            if (isPlaying) {
+                try { AudioPlaybackCoordinator.play(mediaPlayer) } catch (_: Exception) {}
+            } else {
+                try { AudioPlaybackCoordinator.pause(mediaPlayer) } catch (_: Exception) {}
+            }
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            try { positionMs = mediaPlayer.currentPosition } catch (_: Exception) {}
+            delay(250)
+        }
+    }
+
+    val progress = remember(positionMs, durationMs) {
+        if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        IconButton(
+            onClick = { if (isPrepared) isPlaying = !isPlaying },
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        // Seek slider
+        Slider(
+            value = progress,
+            onValueChange = { value ->
+                if (durationMs > 0) {
+                    positionMs = (durationMs * value).toInt()
+                    try { mediaPlayer.seekTo(positionMs) } catch (_: Exception) {}
+                }
+            },
+            modifier = Modifier.width(64.dp),
+            valueRange = 0f..1f
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "${formatMs(positionMs)} / ${formatMs(durationMs)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+    }
+}
+
+private fun formatMs(ms: Int): String {
+    val totalSec = ms / 1000
+    val m = totalSec / 60
+    val s = totalSec % 60
+    return "%02d:%02d".format(m, s)
+}
+
+@Composable
 private fun TitleTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -596,6 +887,7 @@ private fun TitleTextField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
+            enabled = enabled,
             textStyle = MaterialTheme.typography.headlineSmall.copy(
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold
@@ -623,7 +915,8 @@ private fun TitleTextField(
 private fun DescriptionTextField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -635,6 +928,7 @@ private fun DescriptionTextField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
+            enabled = enabled,
             textStyle = MaterialTheme.typography.bodyLarge.copy(
                 color = MaterialTheme.colorScheme.onSurface,
                 lineHeight = 24.sp

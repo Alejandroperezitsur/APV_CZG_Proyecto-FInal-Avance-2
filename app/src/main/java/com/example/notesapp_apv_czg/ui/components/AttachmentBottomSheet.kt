@@ -43,7 +43,6 @@ fun AttachmentOptions(
     onAudioClick: () -> Unit,
     onRecordClick: () -> Unit,
     isRecording: Boolean,
-    recordingText: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -118,7 +117,7 @@ fun AttachmentOptions(
             ) {
                 AttachmentOptionItem(
                     icon = Icons.Default.Mic,
-                    label = if (isRecording) (recordingText ?: stringResource(R.string.stop_recording)) else stringResource(
+                    label = if (isRecording) stringResource(R.string.stop_recording) else stringResource(
                         R.string.record_audio
                     ),
                     backgroundColor = if (isRecording) Color(0xFFFF4444) else Color(0xFF4ECDC4), // Teal

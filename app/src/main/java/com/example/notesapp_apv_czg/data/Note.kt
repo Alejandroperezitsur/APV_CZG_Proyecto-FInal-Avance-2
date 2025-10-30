@@ -10,6 +10,7 @@ data class Note(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
     val description: String? = null,
+    val isLocked: Boolean = false,
     val isTask: Boolean = false,
     val isCompleted: Boolean = false,
     val dueDateMillis: Long? = null,

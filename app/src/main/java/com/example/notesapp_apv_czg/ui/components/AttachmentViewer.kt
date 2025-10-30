@@ -98,7 +98,7 @@ private fun AttachmentItem(
     onRemove: () -> Unit
 ) {
     val context = LocalContext.current
-    val isAudio = remember(uri) { isAudioUri(context, uri) }
+    val isAudio = uri.contains("audio") || uri.endsWith(".mp3") || uri.endsWith(".m4a") || uri.endsWith(".wav")
     
     Card(
         modifier = Modifier.width(if (isAudio) 280.dp else 200.dp),
@@ -163,28 +163,6 @@ private fun AttachmentItem(
                 }
             }
         }
-    }
-}
-
-private fun isAudioUri(context: Context, uriString: String): Boolean {
-    return try {
-        val u = Uri.parse(uriString)
-        val mime = context.contentResolver.getType(u)
-        if (mime != null) {
-            mime.startsWith("audio/")
-        } else {
-            uriString.endsWith(".mp3", ignoreCase = true) ||
-            uriString.endsWith(".m4a", ignoreCase = true) ||
-            uriString.endsWith(".wav", ignoreCase = true) ||
-            uriString.endsWith(".3gp", ignoreCase = true) ||
-            uriString.contains("/audio/")
-        }
-    } catch (e: Exception) {
-        uriString.endsWith(".mp3", ignoreCase = true) ||
-        uriString.endsWith(".m4a", ignoreCase = true) ||
-        uriString.endsWith(".wav", ignoreCase = true) ||
-        uriString.endsWith(".3gp", ignoreCase = true) ||
-        uriString.contains("/audio/")
     }
 }
 
