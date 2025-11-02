@@ -45,10 +45,10 @@ val predefinedSchemes = listOf(
     ),
     ColorSchemeOption(
         "Oscuro",
-        primary = Color(0xFFBB86FC),
-        secondary = Color(0xFF03DAC6),
-        tertiary = Color(0xFF3700B3),
-        surface = Color(0xFF121212),
+        primary = Color(0xFFD0BCFF), // Más brillante para mejor contraste
+        secondary = Color(0xFF9FD8E6),
+        tertiary = Color(0xFFB4A0FF),
+        surface = Color(0xFF1C1B1F),
         background = Color(0xFF000000)
     ),
     ColorSchemeOption(
@@ -74,6 +74,46 @@ val predefinedSchemes = listOf(
         tertiary = Color(0xFFF44336),
         surface = Color(0xFFFFF3E0),
         background = Color(0xFFFBE9E7)
+    ),
+    ColorSchemeOption(
+        "Royal Purple",
+        primary = Color(0xFF673AB7),
+        secondary = Color(0xFF9C27B0),
+        tertiary = Color(0xFF7E57C2),
+        surface = Color(0xFFEDE7F6),
+        background = Color(0xFFF3E5F5)
+    ),
+    ColorSchemeOption(
+        "Mint",
+        primary = Color(0xFF00796B),
+        secondary = Color(0xFF26A69A),
+        tertiary = Color(0xFF00897B),
+        surface = Color(0xFFE0F2F1),
+        background = Color(0xFFE0F7FA)
+    ),
+    ColorSchemeOption(
+        "Rose Gold",
+        primary = Color(0xFFE91E63),
+        secondary = Color(0xFFF06292),
+        tertiary = Color(0xFFFF80AB),
+        surface = Color(0xFFFCE4EC),
+        background = Color(0xFFFFF0F4)
+    ),
+    ColorSchemeOption(
+        "Autumn",
+        primary = Color(0xFFE65100),
+        secondary = Color(0xFFF57C00),
+        tertiary = Color(0xFFFF9800),
+        surface = Color(0xFFFFF3E0),
+        background = Color(0xFFFFF8E1)
+    ),
+    ColorSchemeOption(
+        "Nordic",
+        primary = Color(0xFF37474F),
+        secondary = Color(0xFF546E7A),
+        tertiary = Color(0xFF455A64),
+        surface = Color(0xFFECEFF1),
+        background = Color(0xFFFAFAFA)
     )
 )
 

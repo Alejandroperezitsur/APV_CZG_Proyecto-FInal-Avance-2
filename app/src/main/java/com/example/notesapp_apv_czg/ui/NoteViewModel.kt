@@ -58,4 +58,40 @@ class NoteViewModel(private val repo: NoteRepository) : ViewModel() {
     fun delete(note: Note) {
         viewModelScope.launch { repo.delete(note) }
     }
+
+    fun toggleFavorite(note: Note) {
+        viewModelScope.launch { 
+            repo.update(note.copy(isFavorite = !note.isFavorite))
+        }
+    }
+
+    fun getFavorites() {
+        repo.getFavorites()
+            .onEach { _notes.value = it }
+            .catch { /* handle */ }
+            .launchIn(viewModelScope)
+    }
+
+    fun addTag(note: Note, tag: String) {
+        if (tag.isNotBlank() && !note.tags.contains(tag)) {
+            viewModelScope.launch {
+                repo.update(note.copy(tags = note.tags + tag))
+            }
+        }
+    }
+
+    fun removeTag(note: Note, tag: String) {
+        viewModelScope.launch {
+            repo.update(note.copy(tags = note.tags - tag))
+        }
+    }
+
+    fun searchByTag(tag: String) {
+        repo.getAllNotes()
+            .onEach { notes ->
+                _notes.value = notes.filter { it.tags.contains(tag) }
+            }
+            .catch { /* handle */ }
+            .launchIn(viewModelScope)
+    }
 }

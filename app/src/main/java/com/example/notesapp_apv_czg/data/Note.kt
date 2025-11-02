@@ -18,5 +18,7 @@ data class Note(
     val reminderMillis: Long? = null,
     val createdAtMillis: Long = System.currentTimeMillis(),
     val attachmentUris: List<String> = emptyList(),
-    val attachmentDescriptions: List<String> = emptyList()
+    val attachmentDescriptions: List<String> = emptyList(),
+    val isFavorite: Boolean = false,
+    val tags: List<String> = emptyList()
 )

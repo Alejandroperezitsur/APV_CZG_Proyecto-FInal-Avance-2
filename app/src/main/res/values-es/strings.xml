@@ -43,6 +43,8 @@
     <string name="record_audio">Grabar audio</string>
     <string name="attachment_image">Imagen adjunta</string>
     <string name="image">Imagen</string>
+    <string name="attachment_audio_label">Audio</string>
+    <string name="attachment_file_label">Archivo</string>
     <string name="voice_message">Mensaje de voz</string>
     <string name="camera">Cámara</string>
     <string name="gallery">Galería</string>

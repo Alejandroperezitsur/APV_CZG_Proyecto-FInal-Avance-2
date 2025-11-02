@@ -75,13 +75,19 @@ class MainActivity : ComponentActivity() {
                                     vm.clearCurrentNote()
                                     nav.navigate("edit/0") // Navigate with a new note ID
                                 },
-                                onOpen = { id -> nav.navigate("edit/$id") },
-                                onDelete = {
-                                    vm.delete(it)
-                                    cancelNotification(it)
+                                onOpen = { id: Long -> nav.navigate("edit/$id") },
+                                onDelete = { note: Note ->
+                                    vm.delete(note)
+                                    cancelNotification(note)
                                 },
-                                onToggleLock = { note, locked ->
+                                onToggleLock = { note: Note, locked: Boolean ->
                                     vm.update(note.copy(isLocked = locked))
+                                },
+                                onToggleComplete = { note: Note ->
+                                    vm.update(note.copy(isCompleted = !note.isCompleted))
+                                },
+                                onToggleFavorite = { note: Note ->
+                                    vm.toggleFavorite(note)
                                 },
                                 onOpenThemeSettings = { nav.navigate("settings/theme") }
                             )
@@ -211,8 +217,9 @@ fun DefaultPreview() {
         NoteListScreen(
             notes = emptyList(),
             onAdd = {},
-            onOpen = {},
-            onDelete = {}
+            onOpen = { _: Long -> },
+            onDelete = { _: Note -> },
+            onToggleFavorite = { _: Note -> }
         )
     }
 }
