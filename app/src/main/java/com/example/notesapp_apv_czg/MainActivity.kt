@@ -48,7 +48,7 @@ import com.example.notesapp_apv_czg.ui.theme.ThemeManager
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
+    ) { _ ->
         // Handle the permission results if needed
     }
 

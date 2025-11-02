@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +34,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
 import com.example.notesapp_apv_czg.ui.components.PinDialog
+import com.example.notesapp_apv_czg.security.PinManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -49,25 +51,39 @@ fun NoteCard(
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { dismissValue ->
-            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else false
+            when (dismissValue) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    onDelete()
+                    true
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onToggleFavorite(note)
+                    true
+                }
+                else -> false
+            }
         }
     )
 
     SwipeToDismissBox(
         state = dismissState,
         backgroundContent = {
+            val target = dismissState.targetValue
             val color by animateColorAsState(
-                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else MaterialTheme.colorScheme.surface,
+                targetValue = when (target) {
+                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                    SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.surface
+                },
                 label = "background_color"
             )
-            val scale by animateFloatAsState(
-                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1.3f else 0.8f,
-                label = "scale"
+            val deleteScale by animateFloatAsState(
+                targetValue = if (target == SwipeToDismissBoxValue.EndToStart) 1.3f else 0.8f,
+                label = "delete_scale"
+            )
+            val starScale by animateFloatAsState(
+                targetValue = if (target == SwipeToDismissBoxValue.StartToEnd) 1.3f else 0.8f,
+                label = "star_scale"
             )
 
             Box(
@@ -75,12 +91,22 @@ fun NoteCard(
                     .fillMaxSize()
                     .background(color, RoundedCornerShape(16.dp))
                     .padding(16.dp),
-                contentAlignment = Alignment.CenterEnd
+                contentAlignment = Alignment.Center
             ) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .scale(starScale),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = stringResource(R.string.delete),
-                    modifier = Modifier.scale(scale),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .scale(deleteScale),
                     tint = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
@@ -304,6 +330,9 @@ fun NoteListScreen(
     var filterType by remember { mutableStateOf("all") }
     var showDeleteDialog by remember { mutableStateOf<Note?>(null) }
     var pinTargetNote by remember { mutableStateOf<Note?>(null) }
+    var pinUnlockTarget by remember { mutableStateOf<Note?>(null) }
+    var pinSetTarget by remember { mutableStateOf<Note?>(null) }
+    val context = LocalContext.current
 
     val filteredNotes = notes.filter { note ->
         val matchesSearch = note.title.contains(searchQuery, ignoreCase = true) ||
@@ -477,7 +506,19 @@ fun NoteListScreen(
                                     }
                                 },
                                 onDelete = { showDeleteDialog = note },
-                                onToggleLock = onToggleLock,
+                                onToggleLock = { n, desiredLocked ->
+                                    // Desbloquear requiere PIN
+                                    if (!desiredLocked) {
+                                        pinUnlockTarget = n
+                                    } else {
+                                        // Si no hay PIN configurado, solicitar configuración antes de bloquear
+                                        if (!PinManager.isPinSet(context)) {
+                                            pinSetTarget = n
+                                        } else {
+                                            onToggleLock(n, true)
+                                        }
+                                    }
+                                },
                                 onToggleComplete = onToggleComplete,
                                 onToggleFavorite = onToggleFavorite
                             )
@@ -521,6 +562,28 @@ fun NoteListScreen(
                 },
                 onCancel = { pinTargetNote = null },
                 title = "Desbloquear nota"
+            )
+        }
+
+        pinUnlockTarget?.let { target ->
+            PinDialog(
+                onSuccess = {
+                    onToggleLock(target, false)
+                    pinUnlockTarget = null
+                },
+                onCancel = { pinUnlockTarget = null },
+                title = "Desbloquear nota"
+            )
+        }
+
+        pinSetTarget?.let { target ->
+            PinDialog(
+                onSuccess = {
+                    onToggleLock(target, true)
+                    pinSetTarget = null
+                },
+                onCancel = { pinSetTarget = null },
+                title = "Configurar PIN"
             )
         }
     }
