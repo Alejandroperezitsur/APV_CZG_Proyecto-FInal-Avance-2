@@ -9,13 +9,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.example.notesapp_apv_czg.security.PinManager
+import com.example.notesapp_apv_czg.R
 
 @Composable
 fun PinDialog(
     onSuccess: () -> Unit,
     onCancel: () -> Unit,
-    title: String = "Desbloquear nota"
+    title: String? = null
 ) {
     val context = LocalContext.current
     val isSet = remember { PinManager.isPinSet(context) }
@@ -23,31 +25,34 @@ fun PinDialog(
     var confirm by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
+    val dialogTitle = title
+        ?: stringResource(R.string.unlock_note_title)
+
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(title) },
+        title = { Text(dialogTitle) },
         text = {
             Column {
                 if (!isSet) {
-                    Text("Crea un PIN para proteger tus notas")
+                    Text(stringResource(R.string.pin_setup_message))
                     OutlinedTextField(
                         value = pin,
                         onValueChange = { pin = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("PIN") },
+                        label = { Text(stringResource(R.string.pin_label)) },
                         visualTransformation = PasswordVisualTransformation()
                     )
                     OutlinedTextField(
                         value = confirm,
                         onValueChange = { confirm = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Confirmar PIN") },
+                        label = { Text(stringResource(R.string.confirm_pin_label)) },
                         visualTransformation = PasswordVisualTransformation()
                     )
                 } else {
-                    Text("Introduce tu PIN")
+                    Text(stringResource(R.string.enter_pin))
                     OutlinedTextField(
                         value = pin,
                         onValueChange = { pin = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("PIN") },
+                        label = { Text(stringResource(R.string.pin_label)) },
                         visualTransformation = PasswordVisualTransformation()
                     )
                 }
@@ -60,11 +65,11 @@ fun PinDialog(
             Button(onClick = {
                 if (!isSet) {
                     if (pin.length < 4) {
-                        error = "El PIN debe tener al menos 4 dígitos"
+                        error = context.getString(R.string.pin_too_short_error)
                         return@Button
                     }
                     if (pin != confirm) {
-                        error = "Los PIN no coinciden"
+                        error = context.getString(R.string.pin_mismatch_error)
                         return@Button
                     }
                     PinManager.setPin(context, pin)
@@ -73,15 +78,15 @@ fun PinDialog(
                     if (PinManager.verifyPin(context, pin)) {
                         onSuccess()
                     } else {
-                        error = "PIN incorrecto"
+                        error = context.getString(R.string.pin_incorrect_error)
                     }
                 }
             }) {
-                Text(if (!isSet) "Guardar" else "Desbloquear")
+                Text(if (!isSet) stringResource(R.string.save) else stringResource(R.string.unlock))
             }
         },
         dismissButton = {
-            Button(onClick = onCancel) { Text("Cancelar") }
+            Button(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
         }
     )
 }

@@ -363,7 +363,7 @@ fun NoteEditorScreen(
                                 isRecording = true
                             }
                         } catch (e: Exception) {
-                            scope.launch { snackbarHostState.showSnackbar("No se pudo iniciar la grabación") }
+                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.recording_start_failed)) }
                         }
                     }
                 },
@@ -409,7 +409,7 @@ fun NoteEditorScreen(
                             }
                         },
                         onCancel = { showPinSetDialog = false },
-                        title = "Configurar PIN"
+                        title = stringResource(R.string.configure_pin_title)
                     )
                 }
 
@@ -434,7 +434,7 @@ fun NoteEditorScreen(
                             }
                         },
                         onCancel = { showPinUnlockDialog = false },
-                        title = "Desbloquear nota"
+                        title = stringResource(R.string.unlock_note_title)
                     )
                 }
 

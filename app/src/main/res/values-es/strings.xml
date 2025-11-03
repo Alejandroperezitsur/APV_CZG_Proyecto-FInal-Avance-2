@@ -25,6 +25,7 @@
     <string name="save">Guardar</string>
     <string name="cancel">Cancelar</string>
     <string name="delete">Eliminar</string>
+    <string name="edit">Editar</string>
     <string name="delete_note_title">Eliminar Nota</string>
     <string name="delete_note_confirmation">¿Estás seguro de que quieres eliminar esta nota? Esta acción no se puede deshacer.</string>
     <string name="channel_name">Recordatorios de Tareas</string>
@@ -53,4 +54,22 @@
     <string name="select_from_gallery">Seleccionar de la galería</string>
     <string name="no_notes_found">No se encontraron notas</string>
 
+    <!-- Añadido para i18n y mejoras de múltiples pantallas -->
+    <string name="remove_from_favorites">Quitar de favoritos</string>
+    <string name="add_to_favorites">Agregar a favoritos</string>
+    <string name="locked_note">Nota bloqueada</string>
+    <string name="theme">Tema</string>
+    <string name="favorites">Favoritos</string>
+    <string name="unlock_note_title">Desbloquear nota</string>
+    <string name="configure_pin_title">Configurar PIN</string>
+    <string name="pin_setup_message">Crea un PIN para proteger tus notas</string>
+    <string name="pin_label">PIN</string>
+    <string name="confirm_pin_label">Confirmar PIN</string>
+    <string name="enter_pin">Introduce tu PIN</string>
+    <string name="pin_too_short_error">El PIN debe tener al menos 4 dígitos</string>
+    <string name="pin_mismatch_error">Los PIN no coinciden</string>
+    <string name="pin_incorrect_error">PIN incorrecto</string>
+    <string name="unlock">Desbloquear</string>
+    <string name="locked_note_preview_warning">⚠️ Esta nota está protegida. Ingresa el PIN para ver su contenido.</string>
+    <string name="recording_start_failed">No se pudo iniciar la grabación</string>
 </resources>

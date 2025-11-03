@@ -41,6 +41,7 @@ import com.example.notesapp_apv_czg.data.NoteRepository
 import com.example.notesapp_apv_czg.ui.NoteEditorScreen
 import com.example.notesapp_apv_czg.ui.NoteListScreen
 import com.example.notesapp_apv_czg.ui.NoteViewModel
+import com.example.notesapp_apv_czg.ui.NoteDetailScreen
 import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
 import com.example.notesapp_apv_czg.ui.theme.ThemeSettingsScreen
 import com.example.notesapp_apv_czg.ui.theme.ThemeManager
@@ -75,7 +76,7 @@ class MainActivity : ComponentActivity() {
                                     vm.clearCurrentNote()
                                     nav.navigate("edit/0") // Navigate with a new note ID
                                 },
-                                onOpen = { id: Long -> nav.navigate("edit/$id") },
+                                onOpen = { id: Long -> nav.navigate("detail/$id") },
                                 onDelete = { note: Note ->
                                     vm.delete(note)
                                     cancelNotification(note)
@@ -109,6 +110,15 @@ class MainActivity : ComponentActivity() {
                                     }
                                     nav.popBackStack()
                                 }
+                            )
+                        }
+                        composable("detail/{id}") { backStack ->
+                            val id = backStack.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                            NoteDetailScreen(
+                                noteId = id,
+                                viewModel = vm,
+                                onBack = { nav.popBackStack() },
+                                onEdit = { noteId: Long -> nav.navigate("edit/$noteId") }
                             )
                         }
                         composable("settings/theme") {

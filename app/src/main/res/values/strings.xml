@@ -25,6 +25,7 @@
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
     <string name="delete_note_title">Delete Note</string>
     <string name="delete_note_confirmation">Are you sure you want to delete this note? This action cannot be undone.</string>
     <string name="channel_name">Task Reminders</string>
@@ -53,4 +54,22 @@
     <string name="select_from_gallery">Select from gallery</string>
     <string name="no_notes_found">No matching notes found</string>
 
+    <!-- Added for i18n and multi-screen work -->
+    <string name="remove_from_favorites">Remove from favorites</string>
+    <string name="add_to_favorites">Add to favorites</string>
+    <string name="locked_note">Locked note</string>
+    <string name="theme">Theme</string>
+    <string name="favorites">Favorites</string>
+    <string name="unlock_note_title">Unlock note</string>
+    <string name="configure_pin_title">Set up PIN</string>
+    <string name="pin_setup_message">Create a PIN to protect your notes</string>
+    <string name="pin_label">PIN</string>
+    <string name="confirm_pin_label">Confirm PIN</string>
+    <string name="enter_pin">Enter your PIN</string>
+    <string name="pin_too_short_error">PIN must be at least 4 digits</string>
+    <string name="pin_mismatch_error">PINs do not match</string>
+    <string name="pin_incorrect_error">Incorrect PIN</string>
+    <string name="unlock">Unlock</string>
+    <string name="locked_note_preview_warning">⚠️ This note is protected. Enter the PIN to view its content.</string>
+    <string name="recording_start_failed">Failed to start recording</string>
 </resources>

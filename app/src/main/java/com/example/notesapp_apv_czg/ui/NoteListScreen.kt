@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
@@ -211,7 +214,7 @@ fun NoteCardContent(
                     ) {
                         Icon(
                             imageVector = if (note.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = if (note.isFavorite) "Quitar de favoritos" else "Agregar a favoritos",
+                            contentDescription = if (note.isFavorite) stringResource(R.string.remove_from_favorites) else stringResource(R.string.add_to_favorites),
                             tint = if (note.isFavorite) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline,
                             modifier = Modifier.size(20.dp)
                         )
@@ -230,7 +233,7 @@ fun NoteCardContent(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = if (note.isLocked) "Nota bloqueada" else note.title,
+                text = if (note.isLocked) stringResource(R.string.locked_note) else note.title,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     textDecoration = if (note.isTask && note.isCompleted) TextDecoration.LineThrough else null
@@ -263,7 +266,7 @@ fun NoteCardContent(
             } else {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "⚠️ Esta nota está protegida. Ingresa el PIN para ver su contenido.",
+                    text = stringResource(R.string.locked_note_preview_warning),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     maxLines = 2,
@@ -282,7 +285,7 @@ fun NoteCardContent(
                     note.dueDateMillis?.let { dueDate ->
                         val isOverdue = dueDate < System.currentTimeMillis() && !note.isCompleted
                         Text(
-                            text = "Due: ${SimpleDateFormat.getDateInstance().format(Date(dueDate))}",
+                            text = stringResource(R.string.due_date, SimpleDateFormat.getDateInstance().format(Date(dueDate))),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
                             fontWeight = if (isOverdue) FontWeight.SemiBold else FontWeight.Normal
@@ -364,7 +367,7 @@ fun NoteListScreen(
                     IconButton(onClick = onOpenThemeSettings) {
                         Icon(
                             imageVector = Icons.Default.Palette,
-                            contentDescription = "Tema",
+                            contentDescription = stringResource(R.string.theme),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -471,7 +474,7 @@ fun NoteListScreen(
                         FilterChip(
                             selected = filterType == "favorites",
                             onClick = { filterType = "favorites" },
-                            label = { Text("Favoritos", fontWeight = FontWeight.Medium) },
+                            label = { Text(stringResource(R.string.favorites), fontWeight = FontWeight.Medium) },
                             leadingIcon = {
                                 Icon(
                                     Icons.Default.Star,
@@ -488,43 +491,80 @@ fun NoteListScreen(
                 if (filteredNotes.isEmpty()) {
                     EmptyState(hasSearch = searchQuery.isNotEmpty())
                 } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(
-                            items = filteredNotes,
-                            key = { it.id }
-                        ) { note ->
-                            NoteCard(
-                                note = note,
-                                onClick = {
-                                    if (note.isLocked) {
-                                        pinTargetNote = note
-                                    } else {
-                                        onOpen(note.id)
-                                    }
-                                },
-                                onDelete = { showDeleteDialog = note },
-                                onToggleLock = { n, desiredLocked ->
-                                    // Desbloquear requiere PIN
-                                    if (!desiredLocked) {
-                                        pinUnlockTarget = n
-                                    } else {
-                                        // Si no hay PIN configurado, solicitar configuración antes de bloquear
-                                        if (!PinManager.isPinSet(context)) {
-                                            pinSetTarget = n
-                                        } else {
-                                            onToggleLock(n, true)
-                                        }
-                                    }
-                                },
-                                onToggleComplete = onToggleComplete,
-                                onToggleFavorite = onToggleFavorite
-                            )
-                        }
-                        item {
-                            Spacer(modifier = Modifier.height(80.dp))
+                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                        val isLargeScreen = maxWidth >= 600.dp
+                        if (isLargeScreen) {
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(minSize = 320.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(filteredNotes, key = { it.id }) { note ->
+                                    NoteCard(
+                                        note = note,
+                                        onClick = {
+                                            if (note.isLocked) {
+                                                pinTargetNote = note
+                                            } else {
+                                                onOpen(note.id)
+                                            }
+                                        },
+                                        onDelete = { showDeleteDialog = note },
+                                        onToggleLock = { n, desiredLocked ->
+                                            if (!desiredLocked) {
+                                                pinUnlockTarget = n
+                                            } else {
+                                                if (!PinManager.isPinSet(context)) {
+                                                    pinSetTarget = n
+                                                } else {
+                                                    onToggleLock(n, true)
+                                                }
+                                            }
+                                        },
+                                        onToggleComplete = onToggleComplete,
+                                        onToggleFavorite = onToggleFavorite,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                item { Spacer(modifier = Modifier.height(80.dp)) }
+                            }
+                        } else {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(
+                                    items = filteredNotes,
+                                    key = { it.id }
+                                ) { note ->
+                                    NoteCard(
+                                        note = note,
+                                        onClick = {
+                                            if (note.isLocked) {
+                                                pinTargetNote = note
+                                            } else {
+                                                onOpen(note.id)
+                                            }
+                                        },
+                                        onDelete = { showDeleteDialog = note },
+                                        onToggleLock = { n, desiredLocked ->
+                                            if (!desiredLocked) {
+                                                pinUnlockTarget = n
+                                            } else {
+                                                if (!PinManager.isPinSet(context)) {
+                                                    pinSetTarget = n
+                                                } else {
+                                                    onToggleLock(n, true)
+                                                }
+                                            }
+                                        },
+                                        onToggleComplete = onToggleComplete,
+                                        onToggleFavorite = onToggleFavorite
+                                    )
+                                }
+                                item { Spacer(modifier = Modifier.height(80.dp)) }
+                            }
                         }
                     }
                 }
@@ -561,7 +601,7 @@ fun NoteListScreen(
                     pinTargetNote = null
                 },
                 onCancel = { pinTargetNote = null },
-                title = "Desbloquear nota"
+                title = stringResource(R.string.unlock_note_title)
             )
         }
 
@@ -572,7 +612,7 @@ fun NoteListScreen(
                     pinUnlockTarget = null
                 },
                 onCancel = { pinUnlockTarget = null },
-                title = "Desbloquear nota"
+                title = stringResource(R.string.unlock_note_title)
             )
         }
 
@@ -583,7 +623,7 @@ fun NoteListScreen(
                     pinSetTarget = null
                 },
                 onCancel = { pinSetTarget = null },
-                title = "Configurar PIN"
+                title = stringResource(R.string.configure_pin_title)
             )
         }
     }

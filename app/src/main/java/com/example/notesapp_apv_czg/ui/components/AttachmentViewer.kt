@@ -64,7 +64,8 @@ import java.util.concurrent.TimeUnit
 fun AttachmentViewer(
     attachmentUris: List<String>,
     onRemoveAttachment: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    allowRemove: Boolean = true
 ) {
     if (attachmentUris.isNotEmpty()) {
         Column(modifier = modifier) {
@@ -84,7 +85,8 @@ fun AttachmentViewer(
                 items(attachmentUris) { uri ->
                     AttachmentItem(
                         uri = uri,
-                        onRemove = { onRemoveAttachment(uri) }
+                        onRemove = { onRemoveAttachment(uri) },
+                        allowRemove = allowRemove
                     )
                 }
             }
@@ -95,7 +97,8 @@ fun AttachmentViewer(
 @Composable
 private fun AttachmentItem(
     uri: String,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    allowRemove: Boolean = true
 ) {
     val context = LocalContext.current
     val isAudio = uri.contains("audio") || uri.endsWith(".mp3") || uri.endsWith(".m4a") || uri.endsWith(".wav")
@@ -141,25 +144,27 @@ private fun AttachmentItem(
                 }
             }
             
-            // Remove button
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(28.dp),
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.6f)
-            ) {
-                IconButton(
-                    onClick = onRemove,
-                    modifier = Modifier.size(28.dp)
+            // Remove button (optional)
+            if (allowRemove) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(28.dp),
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.6f)
                 ) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = stringResource(R.string.remove_attachment),
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.remove_attachment),
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
