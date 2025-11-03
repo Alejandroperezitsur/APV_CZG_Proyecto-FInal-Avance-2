@@ -100,7 +100,6 @@ private fun AttachmentItem(
     onRemove: () -> Unit,
     allowRemove: Boolean = true
 ) {
-    val context = LocalContext.current
     val isAudio = uri.contains("audio") || uri.endsWith(".mp3") || uri.endsWith(".m4a") || uri.endsWith(".wav")
     
     Card(

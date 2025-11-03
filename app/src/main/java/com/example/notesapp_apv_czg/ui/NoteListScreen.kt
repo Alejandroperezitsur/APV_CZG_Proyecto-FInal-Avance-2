@@ -56,12 +56,14 @@ fun NoteCard(
         confirmValueChange = { dismissValue ->
             when (dismissValue) {
                 SwipeToDismissBoxValue.EndToStart -> {
+                    // Mostrar diálogo de eliminación sin dejar el item en estado dismiss
                     onDelete()
-                    true
+                    false
                 }
                 SwipeToDismissBoxValue.StartToEnd -> {
+                    // Toggle de favorito y recuperar a estado Settled
                     onToggleFavorite(note)
-                    true
+                    false
                 }
                 else -> false
             }
