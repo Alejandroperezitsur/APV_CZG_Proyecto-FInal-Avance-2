@@ -15,10 +15,7 @@ interface NotesRepository {
     suspend fun delete(note: Note)
 }
 
-/**
- * Offline-first implementation of the [NotesRepository]. This repository is the single source
- * of truth for all notes data in the app.
- */
+
 class OfflineNotesRepository(private val dao: NoteDao) : NotesRepository {
     override fun getAllNotes(): Flow<List<Note>> = dao.getAllNotes()
     override fun getAllTasks(): Flow<List<Note>> = dao.getAllTasks()
