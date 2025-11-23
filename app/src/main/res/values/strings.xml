@@ -20,6 +20,7 @@
     <string name="due_date">Due: %1$s</string>
     <string name="add_image">Add Image</string>
     <string name="add_audio">Add Audio</string>
+    <string name="add_video">Add Video</string>
     <string name="attachments">Attachments</string>
     <string name="remove_attachment">Remove attachment</string>
     <string name="save">Save</string>
@@ -35,4 +36,7 @@
     <string name="notes">Notes</string>
     <string name="tasks">Tasks</string>
     <string name="empty_list_message">No notes yet!\nTap the + button to create one.</string>
+    <string name="permission_dialog_title">Permission Required</string>
+    <string name="permission_dialog_text">To ensure that you receive timely notifications for your tasks, the application needs permission to schedule exact alarms. Please grant this permission in the system settings.</string>
+    <string name="permission_dialog_confirm_button">Open Settings</string>
 </resources>

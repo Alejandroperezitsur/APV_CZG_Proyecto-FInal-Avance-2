@@ -20,6 +20,7 @@
     <string name="due_date">Vence: %1$s</string>
     <string name="add_image">Añadir Imagen</string>
     <string name="add_audio">Añadir Audio</string>
+    <string name="add_video">Añadir Video</string>
     <string name="attachments">Adjuntos</string>
     <string name="remove_attachment">Quitar archivo</string>
     <string name="save">Guardar</string>
@@ -35,4 +36,7 @@
     <string name="notes">Notas</string>
     <string name="tasks">Tareas</string>
     <string name="empty_list_message">¡Aún no hay notas!\nToca el botón + para crear una.</string>
+    <string name="permission_dialog_title">Permiso Requerido</string>
+    <string name="permission_dialog_text">Para asegurar que recibas notificaciones puntuales de tus tareas, la aplicación necesita permiso para programar alarmas exactas. Por favor, concede este permiso en los ajustes del sistema.</string>
+    <string name="permission_dialog_confirm_button">Abrir Ajustes</string>
 </resources>

@@ -8,15 +8,25 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,7 +44,7 @@ class MainActivity : ComponentActivity() {
     ) { isGranted: Boolean ->
         // Handle the permission result if needed
     }
-
+    
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,11 +54,28 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermission()
 
         setContent {
+            var showPermissionDialog by remember { mutableStateOf(false) }
+
             NotesAppAPVCZGTheme {
                 val windowSize = calculateWindowSizeClass(this)
                 val vm: NoteViewModel = viewModel(factory = NoteViewModel.Factory)
                 AppScreen(windowSize = windowSize.widthSizeClass, viewModel = vm) {
-                    scheduleNotification(it)
+                    scheduleNotification(it) { showPermissionDialog = true }
+                }
+
+                if (showPermissionDialog) {
+                    ExactAlarmPermissionDialog(
+                        onConfirm = { 
+                            showPermissionDialog = false
+                            // Open settings to grant permission
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).also {
+                                    startActivity(it)
+                                }
+                            }
+                        },
+                        onDismiss = { showPermissionDialog = false }
+                    )
                 }
             }
         }
@@ -75,7 +102,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun scheduleNotification(note: Note) {
+    private fun scheduleNotification(note: Note, onPermissionNeeded: () -> Unit) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, NotificationReceiver::class.java).apply {
             putExtra(NotificationReceiver.TITLE, note.title)
@@ -89,15 +116,11 @@ class MainActivity : ComponentActivity() {
 
         note.dueDateMillis?.let {
             if (it > System.currentTimeMillis()) {
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                        // App cannot schedule exact alarms. Maybe navigate to settings.
-                        return
-                    }
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
-                } catch (e: SecurityException) {
-                    // Handle case where permission is denied
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                    onPermissionNeeded()
+                    return
                 }
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
             }
         } ?: run {
             // If due date is null, cancel any existing alarm for this note
@@ -115,6 +138,25 @@ class MainActivity : ComponentActivity() {
             alarmManager.cancel(pendingIntent)
         }
     }
+}
+
+@Composable
+fun ExactAlarmPermissionDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.permission_dialog_title)) },
+        text = { Text(stringResource(R.string.permission_dialog_text)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.permission_dialog_confirm_button))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
 }
 
 @Preview(showBackground = true)

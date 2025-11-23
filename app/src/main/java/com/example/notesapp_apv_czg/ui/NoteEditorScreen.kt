@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Task
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -156,6 +157,7 @@ fun NoteEditorScreen(
                 attachmentUris = editorState.attachmentUris,
                 onAddImage = { mediaPickerLauncher.launch("image/*") },
                 onAddAudio = { mediaPickerLauncher.launch("audio/*") },
+                onAddVideo = { mediaPickerLauncher.launch("video/*") },
                 onRemoveUri = viewModel::onAttachmentRemoved
             )
             Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
@@ -293,13 +295,20 @@ private fun showTimePicker(context: Context, initialMillis: Long, onTimeSet: (Lo
 }
 
 @Composable
-private fun AttachmentsSection(attachmentUris: List<String>, onAddImage: () -> Unit, onAddAudio: () -> Unit, onRemoveUri: (String) -> Unit) {
+private fun AttachmentsSection(
+    attachmentUris: List<String>,
+    onAddImage: () -> Unit,
+    onAddAudio: () -> Unit,
+    onAddVideo: () -> Unit,
+    onRemoveUri: (String) -> Unit
+) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.attachments), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.width(16.dp))
             IconButton(onClick = onAddImage) { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.add_image)) }
             IconButton(onClick = onAddAudio) { Icon(Icons.Default.Audiotrack, contentDescription = stringResource(R.string.add_audio)) }
+            IconButton(onClick = onAddVideo) { Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.add_video)) }
         }
         if (attachmentUris.isNotEmpty()) {
             Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
@@ -314,19 +323,29 @@ private fun AttachmentsSection(attachmentUris: List<String>, onAddImage: () -> U
 @Composable
 private fun AttachmentItem(uriString: String, onRemoveUri: (String) -> Unit) {
     val context = LocalContext.current
-    val isAudio = remember(uriString) { context.contentResolver.getType(uriString.toUri())?.startsWith("audio/") == true }
+    val mimeType = remember(uriString) { context.contentResolver.getType(uriString.toUri()) }
+    val isAudio = mimeType?.startsWith("audio/") == true
+    val isVideo = mimeType?.startsWith("video/") == true
 
     Box(modifier = Modifier.padding(end = 8.dp)) {
-        if (isAudio) {
-            Box(modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Audiotrack, contentDescription = "Audio file", modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        when {
+            isAudio -> {
+                Box(modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Audiotrack, contentDescription = "Audio file", modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        } else {
-            Image(
-                painter = rememberAsyncImagePainter(model = uriString.toUri()),
-                contentDescription = null,
-                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))
-            )
+            isVideo -> {
+                Box(modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Videocam, contentDescription = "Video file", modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            else -> { // Is an image
+                Image(
+                    painter = rememberAsyncImagePainter(model = uriString.toUri()),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))
+                )
+            }
         }
         Box(
             modifier = Modifier

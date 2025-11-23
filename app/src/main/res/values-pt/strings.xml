@@ -20,6 +20,7 @@
     <string name="due_date">Vencimento: %1$s</string>
     <string name="add_image">Adicionar Imagem</string>
     <string name="add_audio">Adicionar Áudio</string>
+    <string name="add_video">Adicionar Vídeo</string>
     <string name="attachments">Anexos</string>
     <string name="remove_attachment">Remover anexo</string>
     <string name="save">Salvar</string>
@@ -35,4 +36,7 @@
     <string name="notes">Notas</string>
     <string name="tasks">Tarefas</string>
     <string name="empty_list_message">Nenhuma nota ainda!\nToque no botão + para criar uma.</string>
+    <string name="permission_dialog_title">Permissão Necessária</string>
+    <string name="permission_dialog_text">Para garantir que você receba notificações pontuais de suas tarefas, o aplicativo precisa de permissão para agendar alarmes exatos. Por favor, conceda esta permissão nas configurações do sistema.</string>
+    <string name="permission_dialog_confirm_button">Abrir Configurações</string>
 </resources>
