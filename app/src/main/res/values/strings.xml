@@ -13,11 +13,11 @@
     <string name="low">Low</string>
     <string name="medium">Medium</string>
     <string name="high">High</string>
-    <string name="due_date_time">Due date &amp; time</string>
-    <string name="set_due_date">Set due date</string>
+    <string name="due_date_time">Reminder</string>
+    <string name="set_due_date">Set reminder</string>
     <string name="set_date">Set Date</string>
     <string name="set_time">Set Time</string>
-    <string name="due_date">Due: %1$s</string>
+    <string name="due_date">Reminder: %1$s</string>
     <string name="add_image">Add Image</string>
     <string name="add_audio">Add Audio</string>
     <string name="add_video">Add Video</string>

@@ -13,11 +13,11 @@
     <string name="low">Baja</string>
     <string name="medium">Media</string>
     <string name="high">Alta</string>
-    <string name="due_date_time">Fecha y hora de vencimiento</string>
-    <string name="set_due_date">Establecer fecha de vencimiento</string>
+    <string name="due_date_time">Recordatorio</string>
+    <string name="set_due_date">Establecer recordatorio</string>
     <string name="set_date">Establecer Fecha</string>
     <string name="set_time">Establecer Hora</string>
-    <string name="due_date">Vence: %1$s</string>
+    <string name="due_date">Recordatorio: %1$s</string>
     <string name="add_image">Añadir Imagen</string>
     <string name="add_audio">Añadir Audio</string>
     <string name="add_video">Añadir Video</string>
