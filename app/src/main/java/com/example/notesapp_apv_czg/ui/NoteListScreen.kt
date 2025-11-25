@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -224,7 +225,7 @@ private fun NoteCard(note: Note, onClick: () -> Unit, onLongClick: () -> Unit) {
 
 @Composable
 private fun DueDateIndicator(dueDateMillis: Long, priority: Int) {
-    val formattedDate = remember { SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT).format(Date(dueDateMillis)) }
+    val formattedDate = remember { SimpleDateFormat.getDateTimeInstance().format(Date(dueDateMillis)) }
     val priorityColor = when (priority) {
         0 -> Color(0xFF4CAF50) // Low
         1 -> Color(0xFFFF9800) // Medium
@@ -243,6 +244,7 @@ private fun AttachmentIcons(uris: List<String>) {
     val context = LocalContext.current
     val hasImage = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("image/") == true } }
     val hasAudio = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("audio/") == true } }
+    val hasVideo = remember(uris) { uris.any { context.contentResolver.getType(it.toUri())?.startsWith("video/") == true } }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (hasImage) {
@@ -250,6 +252,9 @@ private fun AttachmentIcons(uris: List<String>) {
         }
         if (hasAudio) {
             Icon(Icons.Default.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (hasVideo) {
+            Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
