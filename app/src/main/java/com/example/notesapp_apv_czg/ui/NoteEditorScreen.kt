@@ -67,7 +67,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
 import java.text.SimpleDateFormat
@@ -324,42 +326,64 @@ private fun AttachmentsSection(
 @Composable
 private fun AttachmentItem(uriString: String, onRemoveUri: (String) -> Unit) {
     val context = LocalContext.current
-    val mimeType = remember(uriString) { context.contentResolver.getType(uriString.toUri()) }
+    val uri = remember { uriString.toUri() }
+    val mimeType = remember(uri) { context.contentResolver.getType(uri) }
+    val isVideo = mimeType?.startsWith("video/") == true
     val isAudio = mimeType?.startsWith("audio/") == true
 
+    val viewIntent = remember {
+        Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(uri)
+            .build()
+    )
+
     Box(modifier = Modifier.padding(end = 8.dp)) {
-        if (isAudio) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Audiotrack,
-                    contentDescription = "Audio file",
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable {
+                    try {
+                        context.startActivity(viewIntent)
+                    } catch (e: Exception) {
+                        // Could show a toast message here
+                        e.printStackTrace()
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            // Fallback icon logic
+            if (painter.state !is AsyncImagePainter.State.Success) {
+                when {
+                    isVideo -> Icon(Icons.Default.Videocam, "Video", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    isAudio -> Icon(Icons.Default.Audiotrack, "Audio", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        } else { // Handle images and videos
+            // Image for video frame, album art, or actual image
             Image(
-                painter = rememberAsyncImagePainter(model = uriString.toUri()),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                painter = painter,
+                contentDescription = "Attachment thumbnail",
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
         }
+
+        // Remove button
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = 8.dp, y = (-8).dp)
                 .background(MaterialTheme.colorScheme.surface, CircleShape)
                 .clip(CircleShape)
-                .clickable { onRemoveUri(uriString) }
+                .clickable { onRemoveUri(uriString) },
         ) {
             Icon(
                 Icons.Default.Cancel,
