@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -86,7 +87,7 @@ fun NoteEditorScreen(
     val context = LocalContext.current
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
             try {
@@ -155,9 +156,9 @@ fun NoteEditorScreen(
 
             AttachmentsSection(
                 attachmentUris = editorState.attachmentUris,
-                onAddImage = { mediaPickerLauncher.launch("image/*") },
-                onAddAudio = { mediaPickerLauncher.launch("audio/*") },
-                onAddVideo = { mediaPickerLauncher.launch("video/*") },
+                onAddImage = { mediaPickerLauncher.launch(arrayOf("image/*")) },
+                onAddAudio = { mediaPickerLauncher.launch(arrayOf("audio/*")) },
+                onAddVideo = { mediaPickerLauncher.launch(arrayOf("video/*")) },
                 onRemoveUri = viewModel::onAttachmentRemoved
             )
             Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
@@ -325,27 +326,32 @@ private fun AttachmentItem(uriString: String, onRemoveUri: (String) -> Unit) {
     val context = LocalContext.current
     val mimeType = remember(uriString) { context.contentResolver.getType(uriString.toUri()) }
     val isAudio = mimeType?.startsWith("audio/") == true
-    val isVideo = mimeType?.startsWith("video/") == true
 
     Box(modifier = Modifier.padding(end = 8.dp)) {
-        when {
-            isAudio -> {
-                Box(modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Audiotrack, contentDescription = "Audio file", modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            isVideo -> {
-                Box(modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Videocam, contentDescription = "Video file", modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            else -> { // Is an image
-                Image(
-                    painter = rememberAsyncImagePainter(model = uriString.toUri()),
-                    contentDescription = null,
-                    modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))
+        if (isAudio) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Audiotrack,
+                    contentDescription = "Audio file",
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        } else { // Handle images and videos
+            Image(
+                painter = rememberAsyncImagePainter(model = uriString.toUri()),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentScale = ContentScale.Crop
+            )
         }
         Box(
             modifier = Modifier
@@ -355,7 +361,12 @@ private fun AttachmentItem(uriString: String, onRemoveUri: (String) -> Unit) {
                 .clip(CircleShape)
                 .clickable { onRemoveUri(uriString) }
         ) {
-            Icon(Icons.Default.Cancel, contentDescription = stringResource(R.string.remove_attachment), modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+            Icon(
+                Icons.Default.Cancel,
+                contentDescription = stringResource(R.string.remove_attachment),
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
