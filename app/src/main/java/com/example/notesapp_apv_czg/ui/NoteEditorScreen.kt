@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Task
 import androidx.compose.material.icons.filled.Videocam
@@ -55,7 +56,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,15 +69,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.notesapp_apv_czg.R
 import com.example.notesapp_apv_czg.data.Note
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,7 +91,6 @@ fun NoteEditorScreen(
     onCancel: () -> Unit = {}
 ) {
     val editorState by viewModel.editorState.collectAsState()
-
     val context = LocalContext.current
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
@@ -99,6 +104,24 @@ fun NoteEditorScreen(
             } catch (e: SecurityException) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    var tempMediaUri by remember { mutableStateOf<Uri?>(null) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            tempMediaUri?.let { viewModel.onAttachmentAdded(it.toString()) }
+        }
+    }
+
+    val recordVideoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CaptureVideo()
+    ) { success ->
+        if (success) {
+            tempMediaUri?.let { viewModel.onAttachmentAdded(it.toString()) }
         }
     }
 
@@ -145,7 +168,7 @@ fun NoteEditorScreen(
                 modifier = Modifier.fillMaxHeight()
             )
 
-            if(editorState.isTask) {
+            if (editorState.isTask) {
                 TaskOptions(
                     isCompleted = editorState.isCompleted,
                     onIsCompletedChange = viewModel::onIsCompletedChange,
@@ -161,11 +184,35 @@ fun NoteEditorScreen(
                 onAddImage = { mediaPickerLauncher.launch(arrayOf("image/*")) },
                 onAddAudio = { mediaPickerLauncher.launch(arrayOf("audio/*")) },
                 onAddVideo = { mediaPickerLauncher.launch(arrayOf("video/*")) },
+                onTakePicture = {
+                    val uri = createTempUri(context, "jpg")
+                    tempMediaUri = uri
+                    takePictureLauncher.launch(uri)
+                },
+                onRecordVideo = {
+                    val uri = createTempUri(context, "mp4")
+                    tempMediaUri = uri
+                    recordVideoLauncher.launch(uri)
+                },
                 onRemoveUri = viewModel::onAttachmentRemoved
             )
             Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
         }
     }
+}
+
+private fun createTempUri(context: Context, extension: String): Uri {
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    val file = File.createTempFile(
+        "NOTE_APP_${timeStamp}_",
+        ".$extension",
+        context.cacheDir
+    )
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.provider",
+        file
+    )
 }
 
 @Composable
@@ -257,7 +304,7 @@ private fun DueDateSelector(dueDateMillis: Long?, onDueDateChange: (Long?) -> Un
 
     AssistChip(
         modifier = Modifier.padding(top = 8.dp),
-        onClick = { 
+        onClick = {
             showDatePicker(context, dueDateMillis) { newDate ->
                 showTimePicker(context, newDate, onDueDateChange)
             }
@@ -265,7 +312,7 @@ private fun DueDateSelector(dueDateMillis: Long?, onDueDateChange: (Long?) -> Un
         label = { Text(formattedDate ?: stringResource(R.string.set_due_date)) },
         leadingIcon = { Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp)) },
         trailingIcon = if (dueDateMillis != null) {
-            { 
+            {
                 IconButton(onClick = { onDueDateChange(null) }) {
                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remove_attachment), modifier = Modifier.size(18.dp))
                 }
@@ -303,15 +350,22 @@ private fun AttachmentsSection(
     onAddImage: () -> Unit,
     onAddAudio: () -> Unit,
     onAddVideo: () -> Unit,
+    onTakePicture: () -> Unit,
+    onRecordVideo: () -> Unit,
     onRemoveUri: (String) -> Unit
 ) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.horizontalScroll(rememberScrollState())
+        ) {
             Text(stringResource(R.string.attachments), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.width(16.dp))
             IconButton(onClick = onAddImage) { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.add_image)) }
             IconButton(onClick = onAddAudio) { Icon(Icons.Default.Audiotrack, contentDescription = stringResource(R.string.add_audio)) }
             IconButton(onClick = onAddVideo) { Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.add_video)) }
+            IconButton(onClick = onTakePicture) { Icon(Icons.Default.PhotoCamera, contentDescription = "Take Picture") }
+            IconButton(onClick = onRecordVideo) { Icon(Icons.Default.Videocam, contentDescription = "Record Video") }
         }
         if (attachmentUris.isNotEmpty()) {
             Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
