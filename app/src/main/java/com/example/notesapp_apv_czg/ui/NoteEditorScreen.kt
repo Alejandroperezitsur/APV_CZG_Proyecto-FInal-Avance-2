@@ -38,8 +38,10 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Task
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AssistChip
@@ -94,6 +96,9 @@ fun NoteEditorScreen(
     val editorState by viewModel.editorState.collectAsState()
     val context = LocalContext.current
 
+    val audioRecorder = remember { AudioRecorder(context) }
+    var isRecording by remember { mutableStateOf(false) }
+
     val mediaPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -139,6 +144,15 @@ fun NoteEditorScreen(
                     recordVideoLauncher.launch(uri)
                 }
             }
+        }
+    }
+
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            audioRecorder.startRecording()
+            isRecording = true
         }
     }
 
@@ -210,6 +224,16 @@ fun NoteEditorScreen(
                     val uri = createTempUri(context, "mp4")
                     tempMediaUri = uri
                     cameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+                },
+                isRecording = isRecording,
+                onRecordAudio = {
+                    if (isRecording) {
+                        val uri = audioRecorder.stopRecording()
+                        isRecording = false
+                        uri?.let { viewModel.onAttachmentAdded(it.toString()) }
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
                 },
                 onRemoveUri = viewModel::onAttachmentRemoved
             )
@@ -369,6 +393,8 @@ private fun AttachmentsSection(
     onAddVideo: () -> Unit,
     onTakePicture: () -> Unit,
     onRecordVideo: () -> Unit,
+    onRecordAudio: () -> Unit,
+    isRecording: Boolean,
     onRemoveUri: (String) -> Unit
 ) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
@@ -383,6 +409,13 @@ private fun AttachmentsSection(
             IconButton(onClick = onAddVideo) { Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.add_video)) }
             IconButton(onClick = onTakePicture) { Icon(Icons.Default.PhotoCamera, contentDescription = "Take Picture") }
             IconButton(onClick = onRecordVideo) { Icon(Icons.Default.Videocam, contentDescription = "Record Video") }
+            IconButton(onClick = onRecordAudio) {
+                Icon(
+                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                    contentDescription = if (isRecording) "Stop Recording" else "Record Audio",
+                    tint = if (isRecording) Color.Red else MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
         if (attachmentUris.isNotEmpty()) {
             Row(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
