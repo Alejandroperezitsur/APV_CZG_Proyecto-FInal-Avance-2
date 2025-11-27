@@ -1,5 +1,6 @@
 package com.example.notesapp_apv_czg.ui
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -125,6 +126,22 @@ fun NoteEditorScreen(
         }
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if(allGranted) {
+            // If permissions are granted, we decide which launcher to use based on the temp URI
+            tempMediaUri?.let { uri ->
+                if (uri.toString().endsWith(".jpg")) {
+                    takePictureLauncher.launch(uri)
+                } else if (uri.toString().endsWith(".mp4")) {
+                    recordVideoLauncher.launch(uri)
+                }
+            }
+        }
+    }
+
     val toSave = {
         viewModel.saveNote(onSave)
     }
@@ -187,12 +204,12 @@ fun NoteEditorScreen(
                 onTakePicture = {
                     val uri = createTempUri(context, "jpg")
                     tempMediaUri = uri
-                    takePictureLauncher.launch(uri)
+                    cameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
                 },
                 onRecordVideo = {
                     val uri = createTempUri(context, "mp4")
                     tempMediaUri = uri
-                    recordVideoLauncher.launch(uri)
+                    cameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
                 },
                 onRemoveUri = viewModel::onAttachmentRemoved
             )

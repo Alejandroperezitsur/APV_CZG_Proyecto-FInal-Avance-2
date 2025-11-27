@@ -39,19 +39,22 @@ import com.example.notesapp_apv_czg.ui.NoteViewModel
 import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
 
 class MainActivity : ComponentActivity() {
+    private var noteForNotification: Note? by mutableStateOf(null)
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
-        // Handle the permission result if needed
+        if (isGranted) {
+            noteForNotification?.let { scheduleNotification(it) }
+        }
     }
-    
+
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         createNotificationChannel()
-        requestNotificationPermission()
 
         setContent {
             var showPermissionDialog by remember { mutableStateOf(false) }
@@ -65,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
                 if (showPermissionDialog) {
                     ExactAlarmPermissionDialog(
-                        onConfirm = { 
+                        onConfirm = {
                             showPermissionDialog = false
                             // Open settings to grant permission
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -89,20 +92,30 @@ class MainActivity : ComponentActivity() {
             val channel = NotificationChannel(NotificationReceiver.CHANNEL_ID, name, importance).apply {
                 description = descriptionText
             }
-            val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
     }
 
-    private fun requestNotificationPermission() {
+    private fun requestNotificationPermission(noteToSchedule: Note) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                noteForNotification = noteToSchedule
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                // Permission already granted
+                scheduleNotification(noteToSchedule)
             }
         }
     }
 
-    private fun scheduleNotification(note: Note, onPermissionNeeded: () -> Unit) {
+    private fun scheduleNotification(note: Note, onPermissionNeeded: () -> Unit = {}) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestNotificationPermission(note)
+            return
+        }
+
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, NotificationReceiver::class.java).apply {
             putExtra(NotificationReceiver.TITLE, note.title)
