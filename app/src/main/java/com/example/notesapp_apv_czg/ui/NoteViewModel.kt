@@ -25,11 +25,15 @@ data class EditorUiState(
     val isCompleted: Boolean = false,
     val priority: Int = 0,
     val dueDateMillis: Long? = null,
+    val reminders: List<Long> = emptyList(),
     val attachmentUris: List<String> = emptyList(),
     val isNewNote: Boolean = true
 )
 
-class NoteViewModel(private val repo: NotesRepository) : ViewModel() {
+class NoteViewModel(
+    private val repo: NotesRepository,
+    private val notificationScheduler: NotificationScheduler
+) : ViewModel() {
     private val _notes = repo.getAllNotes()
     private val _filter = MutableStateFlow(NoteFilter.ALL)
     private val _editorState = MutableStateFlow(EditorUiState())
@@ -78,6 +82,16 @@ class NoteViewModel(private val repo: NotesRepository) : ViewModel() {
         _editorState.value = _editorState.value.copy(dueDateMillis = dueDate)
     }
 
+    fun onReminderAdded(reminder: Long) {
+        val currentReminders = _editorState.value.reminders
+        _editorState.value = _editorState.value.copy(reminders = (currentReminders + reminder).sorted())
+    }
+
+    fun onReminderRemoved(reminder: Long) {
+        val currentReminders = _editorState.value.reminders
+        _editorState.value = _editorState.value.copy(reminders = currentReminders - reminder)
+    }
+
     fun onAttachmentAdded(uri: String) {
         val currentUris = _editorState.value.attachmentUris
         _editorState.value = _editorState.value.copy(attachmentUris = currentUris + uri)
@@ -103,6 +117,7 @@ class NoteViewModel(private val repo: NotesRepository) : ViewModel() {
                 isCompleted = it.isCompleted,
                 priority = it.priority,
                 dueDateMillis = it.dueDateMillis,
+                reminders = it.reminders,
                 attachmentUris = it.attachmentUris,
                 isNewNote = false
             )
@@ -123,22 +138,29 @@ class NoteViewModel(private val repo: NotesRepository) : ViewModel() {
             isCompleted = currentEditorState.isCompleted,
             priority = currentEditorState.priority,
             dueDateMillis = currentEditorState.dueDateMillis,
+            reminders = currentEditorState.reminders,
             attachmentUris = currentEditorState.attachmentUris
         )
 
         viewModelScope.launch {
-            if (currentEditorState.isNewNote) {
+            notificationScheduler.cancel(note)
+            val savedNote = if (currentEditorState.isNewNote) {
                 val newId = repo.insert(note)
-                onSaveFinished(note.copy(id = newId))
+                note.copy(id = newId)
             } else {
                 repo.update(note)
-                onSaveFinished(note)
+                note
             }
+            notificationScheduler.schedule(savedNote)
+            onSaveFinished(savedNote)
         }
     }
 
     fun delete(note: Note) {
-        viewModelScope.launch { repo.delete(note) }
+        viewModelScope.launch {
+            repo.delete(note)
+            notificationScheduler.cancel(note)
+        }
     }
 
     companion object {
@@ -146,7 +168,8 @@ class NoteViewModel(private val repo: NotesRepository) : ViewModel() {
             initializer {
                 val application = (this[APPLICATION_KEY] as NotesApplication)
                 val notesRepository = application.container
-                NoteViewModel(repo = notesRepository)
+                val notificationScheduler = NotificationScheduler(application.applicationContext)
+                NoteViewModel(repo = notesRepository, notificationScheduler = notificationScheduler)
             }
         }
     }

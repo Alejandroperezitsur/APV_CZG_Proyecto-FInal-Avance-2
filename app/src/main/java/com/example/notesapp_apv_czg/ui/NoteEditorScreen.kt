@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Close
@@ -206,7 +207,10 @@ fun NoteEditorScreen(
                     priority = editorState.priority,
                     onPriorityChange = viewModel::onPriorityChange,
                     dueDateMillis = editorState.dueDateMillis,
-                    onDueDateChange = viewModel::onDueDateChange
+                    onDueDateChange = viewModel::onDueDateChange,
+                    reminders = editorState.reminders,
+                    onReminderAdded = viewModel::onReminderAdded,
+                    onReminderRemoved = viewModel::onReminderRemoved
                 )
             }
 
@@ -298,7 +302,10 @@ private fun NoteTypeSelection(isTask: Boolean, onIsTaskChange: (Boolean) -> Unit
 private fun TaskOptions(
     isCompleted: Boolean, onIsCompletedChange: (Boolean) -> Unit,
     priority: Int, onPriorityChange: (Int) -> Unit,
-    dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit
+    dueDateMillis: Long?, onDueDateChange: (Long?) -> Unit,
+    reminders: List<Long>,
+    onReminderAdded: (Long) -> Unit,
+    onReminderRemoved: (Long) -> Unit
 ) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onIsCompletedChange(!isCompleted) }) {
@@ -311,6 +318,11 @@ private fun TaskOptions(
         Spacer(modifier = Modifier.height(16.dp))
         Text(stringResource(R.string.due_date_time), style = MaterialTheme.typography.titleMedium)
         DueDateSelector(dueDateMillis = dueDateMillis, onDueDateChange = onDueDateChange)
+        RemindersSection(
+            reminders = reminders,
+            onReminderAdded = onReminderAdded,
+            onReminderRemoved = onReminderRemoved
+        )
     }
 }
 
@@ -360,6 +372,54 @@ private fun DueDateSelector(dueDateMillis: Long?, onDueDateChange: (Long?) -> Un
             }
         } else { null }
     )
+}
+
+@Composable
+private fun RemindersSection(
+    reminders: List<Long>,
+    onReminderAdded: (Long) -> Unit,
+    onReminderRemoved: (Long) -> Unit
+) {
+    val context = LocalContext.current
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Recordatorios", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = {
+                showDatePicker(context, null) { newDate ->
+                    showTimePicker(context, newDate) { finalDateTime ->
+                        finalDateTime?.let { onReminderAdded(it) }
+                    }
+                }
+            }) {
+                Icon(Icons.Default.Add, contentDescription = "Añadir recordatorio")
+            }
+        }
+
+        reminders.forEach { reminderMillis ->
+            ReminderItem(
+                reminderMillis = reminderMillis,
+                onRemove = { onReminderRemoved(reminderMillis) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReminderItem(reminderMillis: Long, onRemove: () -> Unit) {
+    val formattedDate = remember(reminderMillis) {
+        SimpleDateFormat.getDateTimeInstance().format(Date(reminderMillis))
+    }
+    Row(
+        modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(formattedDate)
+        IconButton(onClick = onRemove) {
+            Icon(Icons.Default.Close, contentDescription = "Quitar recordatorio", modifier = Modifier.size(18.dp))
+        }
+    }
 }
 
 private fun showDatePicker(context: Context, initialMillis: Long?, onDateSet: (Long) -> Unit) {

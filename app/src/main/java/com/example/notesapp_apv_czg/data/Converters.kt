@@ -18,4 +18,16 @@ class Converters {
         val listType = object : TypeToken<List<String>>() {}.type
         return gson.fromJson(value, listType)
     }
+
+    @TypeConverter
+    fun fromLongList(list: List<Long>?): String? {
+        return if (list == null) null else gson.toJson(list)
+    }
+
+    @TypeConverter
+    fun toLongList(value: String?): List<Long> {
+        if (value == null) return emptyList()
+        val listType = object : TypeToken<List<Long>>() {}.type
+        return gson.fromJson(value, listType)
+    }
 }
