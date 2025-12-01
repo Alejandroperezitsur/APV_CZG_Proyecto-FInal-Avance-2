@@ -57,6 +57,26 @@ class NoteViewModel(
         _filter.value = newFilter
     }
 
+    fun getNoteById(noteId: Long) {
+        viewModelScope.launch {
+            val note = repo.getById(noteId)
+            note?.let {
+                _editorState.value = EditorUiState(
+                    id = it.id,
+                    title = it.title,
+                    description = it.description ?: "",
+                    isTask = it.isTask,
+                    isCompleted = it.isCompleted,
+                    priority = it.priority,
+                    dueDateMillis = it.dueDateMillis,
+                    reminders = it.reminders,
+                    attachmentUris = it.attachmentUris,
+                    isNewNote = false
+                )
+            }
+        }
+    }
+
     // Editor functions
     fun onTitleChange(newTitle: String) {
         _editorState.value = _editorState.value.copy(title = newTitle)
@@ -107,20 +127,22 @@ class NoteViewModel(
     }
 
     fun loadNote(noteId: Long) {
-        val note = notes.value.find { it.id == noteId }
-        note?.let {
-            _editorState.value = EditorUiState(
-                id = it.id,
-                title = it.title,
-                description = it.description ?: "",
-                isTask = it.isTask,
-                isCompleted = it.isCompleted,
-                priority = it.priority,
-                dueDateMillis = it.dueDateMillis,
-                reminders = it.reminders,
-                attachmentUris = it.attachmentUris,
-                isNewNote = false
-            )
+        viewModelScope.launch {
+            val note = repo.getById(noteId)
+            note?.let {
+                _editorState.value = EditorUiState(
+                    id = it.id,
+                    title = it.title,
+                    description = it.description ?: "",
+                    isTask = it.isTask,
+                    isCompleted = it.isCompleted,
+                    priority = it.priority,
+                    dueDateMillis = it.dueDateMillis,
+                    reminders = it.reminders,
+                    attachmentUris = it.attachmentUris,
+                    isNewNote = false
+                )
+            }
         }
     }
 

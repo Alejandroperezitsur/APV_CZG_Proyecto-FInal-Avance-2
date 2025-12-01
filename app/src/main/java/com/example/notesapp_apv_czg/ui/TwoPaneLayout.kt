@@ -34,7 +34,7 @@ fun TwoPaneLayout(
             onFilterChange = viewModel::onFilterChange,
             showFilterBar = false, // The rail handles filtering
             onAdd = { viewModel.prepareNewNote() },
-            onOpen = { id -> viewModel.loadNote(id) },
+            onOpen = { id -> viewModel.getNoteById(id) }, // Corrected to use getNoteById
             onDelete = viewModel::delete,
             modifier = Modifier.weight(1f)
         )

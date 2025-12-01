@@ -8,7 +8,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -22,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,9 +37,14 @@ import com.example.notesapp_apv_czg.ui.NoteFilter
 import com.example.notesapp_apv_czg.ui.NoteListScreen
 import com.example.notesapp_apv_czg.ui.NoteViewModel
 import com.example.notesapp_apv_czg.ui.theme.NotesAppAPVCZGTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 class MainActivity : ComponentActivity() {
     private var noteForNotification: Note? by mutableStateOf(null)
+
+    private val _noteIdFromIntent = MutableStateFlow<Long?>(null)
+    private val noteIdFromIntent: StateFlow<Long?> = _noteIdFromIntent
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -55,22 +60,28 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         createNotificationChannel()
+        handleIntent(intent)
 
         setContent {
             var showPermissionDialog by remember { mutableStateOf(false) }
+            val noteId by noteIdFromIntent.collectAsState()
 
             NotesAppAPVCZGTheme {
                 val windowSize = calculateWindowSizeClass(this)
                 val vm: NoteViewModel = viewModel(factory = NoteViewModel.Factory)
-                AppScreen(windowSize = windowSize.widthSizeClass, viewModel = vm) {
-                    scheduleNotification(it) { showPermissionDialog = true }
-                }
+
+                AppScreen(
+                    windowSize = windowSize.widthSizeClass,
+                    viewModel = vm,
+                    onScheduleNotification = { scheduleNotification(it) { showPermissionDialog = true } },
+                    noteIdFromIntent = noteId,
+                    onNoteOpenedFromIntent = { _noteIdFromIntent.value = null }
+                )
 
                 if (showPermissionDialog) {
                     ExactAlarmPermissionDialog(
                         onConfirm = {
                             showPermissionDialog = false
-                            // Open settings to grant permission
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).also {
                                     startActivity(it)
@@ -84,6 +95,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.hasExtra(NotificationReceiver.NOTE_ID) == true) {
+            val noteId = intent.getLongExtra(NotificationReceiver.NOTE_ID, -1)
+            if (noteId != -1L) {
+                _noteIdFromIntent.value = noteId
+            }
+            // Clear the extra to prevent re-triggering
+            intent.removeExtra(NotificationReceiver.NOTE_ID)
+        }
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = getString(R.string.channel_name)
@@ -92,8 +119,7 @@ class MainActivity : ComponentActivity() {
             val channel = NotificationChannel(NotificationReceiver.CHANNEL_ID, name, importance).apply {
                 description = descriptionText
             }
-            val notificationManager: NotificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
     }
@@ -104,7 +130,6 @@ class MainActivity : ComponentActivity() {
                 noteForNotification = noteToSchedule
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
-                // Permission already granted
                 scheduleNotification(noteToSchedule)
             }
         }
@@ -120,6 +145,7 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, NotificationReceiver::class.java).apply {
             putExtra(NotificationReceiver.TITLE, note.title)
             putExtra(NotificationReceiver.DESCRIPTION, note.description)
+            putExtra(NotificationReceiver.NOTE_ID, note.id)
             putExtra(NotificationReceiver.NOTIFICATION_ID, note.id.toInt())
         }
 
@@ -136,7 +162,6 @@ class MainActivity : ComponentActivity() {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, it, pendingIntent)
             }
         } ?: run {
-            // If due date is null, cancel any existing alarm for this note
             cancelNotification(note)
         }
     }

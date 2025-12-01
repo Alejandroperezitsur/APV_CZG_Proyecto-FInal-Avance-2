@@ -86,7 +86,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
     viewModel: NoteViewModel,
@@ -95,6 +94,57 @@ fun NoteEditorScreen(
     onCancel: () -> Unit = {}
 ) {
     val editorState by viewModel.editorState.collectAsState()
+
+    NoteEditor(
+        modifier = modifier,
+        title = editorState.title,
+        onTitleChange = viewModel::onTitleChange,
+        description = editorState.description,
+        onDescriptionChange = viewModel::onDescriptionChange,
+        isTask = editorState.isTask,
+        onIsTaskChange = viewModel::onIsTaskChange,
+        isCompleted = editorState.isCompleted,
+        onIsCompletedChange = viewModel::onIsCompletedChange,
+        priority = editorState.priority,
+        onPriorityChange = viewModel::onPriorityChange,
+        dueDateMillis = editorState.dueDateMillis,
+        onDueDateChange = viewModel::onDueDateChange,
+        reminders = editorState.reminders,
+        onReminderAdded = viewModel::onReminderAdded,
+        onReminderRemoved = viewModel::onReminderRemoved,
+        attachmentUris = editorState.attachmentUris,
+        onAttachmentAdded = viewModel::onAttachmentAdded,
+        onAttachmentRemoved = viewModel::onAttachmentRemoved,
+        onSave = { viewModel.saveNote(onSave) },
+        onCancel = onCancel
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NoteEditor(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    description: String,
+    onDescriptionChange: (String) -> Unit,
+    isTask: Boolean,
+    onIsTaskChange: (Boolean) -> Unit,
+    isCompleted: Boolean,
+    onIsCompletedChange: (Boolean) -> Unit,
+    priority: Int,
+    onPriorityChange: (Int) -> Unit,
+    dueDateMillis: Long?,
+    onDueDateChange: (Long?) -> Unit,
+    reminders: List<Long>,
+    onReminderAdded: (Long) -> Unit,
+    onReminderRemoved: (Long) -> Unit,
+    attachmentUris: List<String>,
+    onAttachmentAdded: (String) -> Unit,
+    onAttachmentRemoved: (String) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
 
     val audioRecorder = remember { AudioRecorder(context) }
@@ -107,7 +157,7 @@ fun NoteEditorScreen(
             try {
                 val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(uri, flag)
-                viewModel.onAttachmentAdded(uri.toString())
+                onAttachmentAdded(uri.toString())
             } catch (e: SecurityException) {
                 e.printStackTrace()
             }
@@ -120,7 +170,7 @@ fun NoteEditorScreen(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            tempMediaUri?.let { viewModel.onAttachmentAdded(it.toString()) }
+            tempMediaUri?.let { onAttachmentAdded(it.toString()) }
         }
     }
 
@@ -128,7 +178,7 @@ fun NoteEditorScreen(
         contract = ActivityResultContracts.CaptureVideo()
     ) { success ->
         if (success) {
-            tempMediaUri?.let { viewModel.onAttachmentAdded(it.toString()) }
+            tempMediaUri?.let { onAttachmentAdded(it.toString()) }
         }
     }
 
@@ -157,10 +207,6 @@ fun NoteEditorScreen(
         }
     }
 
-    val toSave = {
-        viewModel.saveNote(onSave)
-    }
-
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -171,7 +217,7 @@ fun NoteEditorScreen(
             })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = toSave) {
+            FloatingActionButton(onClick = onSave) {
                 Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save))
             }
         }
@@ -183,39 +229,39 @@ fun NoteEditorScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            NoteTypeSelection(isTask = editorState.isTask, onIsTaskChange = viewModel::onIsTaskChange)
+            NoteTypeSelection(isTask = isTask, onIsTaskChange = onIsTaskChange)
 
             EditorTextField(
-                value = editorState.title,
-                onValueChange = viewModel::onTitleChange,
+                value = title,
+                onValueChange = onTitleChange,
                 placeholder = stringResource(R.string.title),
                 textStyle = MaterialTheme.typography.headlineMedium
             )
             Spacer(modifier = Modifier.height(16.dp))
             EditorTextField(
-                value = editorState.description,
-                onValueChange = viewModel::onDescriptionChange,
+                value = description,
+                onValueChange = onDescriptionChange,
                 placeholder = stringResource(R.string.description),
                 textStyle = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.fillMaxHeight()
             )
 
-            if (editorState.isTask) {
+            if (isTask) {
                 TaskOptions(
-                    isCompleted = editorState.isCompleted,
-                    onIsCompletedChange = viewModel::onIsCompletedChange,
-                    priority = editorState.priority,
-                    onPriorityChange = viewModel::onPriorityChange,
-                    dueDateMillis = editorState.dueDateMillis,
-                    onDueDateChange = viewModel::onDueDateChange,
-                    reminders = editorState.reminders,
-                    onReminderAdded = viewModel::onReminderAdded,
-                    onReminderRemoved = viewModel::onReminderRemoved
+                    isCompleted = isCompleted,
+                    onIsCompletedChange = onIsCompletedChange,
+                    priority = priority,
+                    onPriorityChange = onPriorityChange,
+                    dueDateMillis = dueDateMillis,
+                    onDueDateChange = onDueDateChange,
+                    reminders = reminders,
+                    onReminderAdded = onReminderAdded,
+                    onReminderRemoved = onReminderRemoved
                 )
             }
 
             AttachmentsSection(
-                attachmentUris = editorState.attachmentUris,
+                attachmentUris = attachmentUris,
                 onAddImage = { mediaPickerLauncher.launch(arrayOf("image/*")) },
                 onAddAudio = { mediaPickerLauncher.launch(arrayOf("audio/*")) },
                 onAddVideo = { mediaPickerLauncher.launch(arrayOf("video/*")) },
@@ -234,12 +280,12 @@ fun NoteEditorScreen(
                     if (isRecording) {
                         val uri = audioRecorder.stopRecording()
                         isRecording = false
-                        uri?.let { viewModel.onAttachmentAdded(it.toString()) }
+                        uri?.let { onAttachmentAdded(it.toString()) }
                     } else {
                         recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 },
-                onRemoveUri = viewModel::onAttachmentRemoved
+                onRemoveUri = onAttachmentRemoved
             )
             Spacer(modifier = Modifier.height(80.dp)) // Spacer for FAB
         }

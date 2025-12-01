@@ -8,6 +8,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY createdAtMillis DESC")
     fun getAllNotes(): Flow<List<Note>>
 
+    @Query("SELECT * FROM notes ORDER BY createdAtMillis DESC")
+    suspend fun getAllNotesSuspendable(): List<Note>
+
     @Query("SELECT * FROM notes WHERE isTask = 1 ORDER BY dueDateMillis ASC")
     fun getAllTasks(): Flow<List<Note>>
 

@@ -14,11 +14,24 @@ import com.example.notesapp_apv_czg.data.Note
 fun AppScreen(
     windowSize: WindowWidthSizeClass,
     viewModel: NoteViewModel,
-    onScheduleNotification: (Note) -> Unit
+    onScheduleNotification: (Note) -> Unit,
+    noteIdFromIntent: Long?,
+    onNoteOpenedFromIntent: () -> Unit
 ) {
     val navController = rememberNavController()
     val notes by viewModel.notes.collectAsState()
     val filter by viewModel.filter.collectAsState()
+
+    LaunchedEffect(noteIdFromIntent) {
+        if (noteIdFromIntent != null && noteIdFromIntent > 0L) {
+            if (windowSize == WindowWidthSizeClass.Compact) {
+                navController.navigate("edit/$noteIdFromIntent")
+            } else {
+                viewModel.getNoteById(noteIdFromIntent)
+            }
+            onNoteOpenedFromIntent()
+        }
+    }
 
     when (windowSize) {
         WindowWidthSizeClass.Compact -> {
@@ -47,10 +60,10 @@ fun AppScreen(
                     )
                 }
                 composable("edit/{id}") { backStackEntry ->
-                    val id = backStackEntry.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                    val id = backStackEntry.arguments?.getString("id")?.toLongOrNull()
                     LaunchedEffect(id) {
-                        if (id != 0L) {
-                            viewModel.loadNote(id)
+                        if (id != null && id > 0L) {
+                            viewModel.getNoteById(id)
                         }
                     }
                     NoteEditorScreen(

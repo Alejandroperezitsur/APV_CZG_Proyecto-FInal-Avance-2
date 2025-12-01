@@ -14,7 +14,7 @@ data class Note(
     val isCompleted: Boolean = false,
     val dueDateMillis: Long? = null,
     val priority: Int = 0,
-    val reminders: List<Long> = emptyList(),
+    val reminders: List<Long> = emptyList(),   // lista para almacenar los recordatorios
     val createdAtMillis: Long = System.currentTimeMillis(),
     val attachmentUris: List<String> = emptyList(),
     val attachmentDescriptions: List<String> = emptyList()

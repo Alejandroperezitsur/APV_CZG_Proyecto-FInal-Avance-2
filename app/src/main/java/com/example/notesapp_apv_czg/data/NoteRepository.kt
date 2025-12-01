@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
  */
 interface NotesRepository {
     fun getAllNotes(): Flow<List<Note>>
+    suspend fun getAllNotesSuspendable(): List<Note>
     fun getAllTasks(): Flow<List<Note>>
     fun search(q: String): Flow<List<Note>>
     suspend fun getById(id: Long): Note?
@@ -18,6 +19,7 @@ interface NotesRepository {
 
 class OfflineNotesRepository(private val dao: NoteDao) : NotesRepository {
     override fun getAllNotes(): Flow<List<Note>> = dao.getAllNotes()
+    override suspend fun getAllNotesSuspendable(): List<Note> = dao.getAllNotesSuspendable()
     override fun getAllTasks(): Flow<List<Note>> = dao.getAllTasks()
     override fun search(q: String): Flow<List<Note>> = dao.search(q)
 

@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> // permiso permita recibir el broadcast del reinicio del dispositivo
+
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -30,6 +32,14 @@
             </intent-filter>
         </activity>
         <receiver android:name=".broadcastreceivers.NotificationReceiver" />
+        <receiver
+            android:name=".broadcastreceivers.BootCompletedReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
